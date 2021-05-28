@@ -7,4 +7,4 @@ With a large number of predictors, P, the estimation may be slow, so it is recom
 
 If the N samples can be assumed to be indepndent, set the parameter ind to TRUE. If it is set to FALSE (the default), the null set follows a Beta((nu-1)/2, 1/2) distribution and nu (the effective sample size) is estimated from the data in the EM algorithm.
 
-The betaMix package depends on the 'Matrix' package, which is also loaded by the edgefinder package, to allow for efficient storage and computation of large co-occurrence matrices. # betaMix
+The betaMix package depends on the 'Matrix' package, which is also loaded by the edgefinder package, to allow for efficient storage and computation of large co-occurrence matrices.
