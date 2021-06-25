@@ -3,7 +3,7 @@
 \docType{data}
 \name{DrySeeds}
 \alias{DrySeeds}
-\title{Metabolite Expression data for the the dry seed group}
+\title{Metabolite Expression data for the the dry seed group.}
 \format{
 A matrix with 50 rows and 68 columns
 }

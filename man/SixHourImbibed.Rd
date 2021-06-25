@@ -3,7 +3,7 @@
 \docType{data}
 \name{SixHourImbibed}
 \alias{SixHourImbibed}
-\title{Metabolite Expression data for the the 6-hour imbibed seed group}
+\title{Metabolite Expression data for the the 6-hour imbibed seed group.}
 \format{
 A matrix with 50 rows and 68 columns
 }

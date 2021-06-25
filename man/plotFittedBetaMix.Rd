@@ -4,11 +4,9 @@
 \alias{plotFittedBetaMix}
 \title{Plot the histogram of the z_j and the fitted mixture distribution.}
 \usage{
-plotFittedBetaMix(M, betaMixObj, yLim = 5)
+plotFittedBetaMix(betaMixObj, yLim = 5)
 }
 \arguments{
-\item{M}{A matrix with N rows (samples) and P columns (variables).}
-
 \item{betaMixObj}{An object returned from betaMix()}
 
 \item{yLim}{The maximum value on the y-axis (default=5)}
@@ -18,8 +16,8 @@ Plot the histogram of the z_j and the fitted mixture distribution.
 }
 \examples{
 \donttest{
-   data(SIM) # from the edgefinder package. Note that for betaMix is has to be transposed
-   res <- betaMix(t(SIM), delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-   plotFittedBetaMix(t(SIM), res)
+   data(SIM)
+   res <- betaMix(SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   plotFittedBetaMix(res)
 }
 }

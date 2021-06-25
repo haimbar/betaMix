@@ -2,10 +2,11 @@
 % Please edit documentation in R/betaMix.R
 \name{betaMix}
 \alias{betaMix}
-\title{Fit a two-component beta mixture model to the matrix of all pairwise correlations obtained from an N*P matrix.}
+\title{Fit a two-component beta mixture model to the matrix of all pairwise correlations.}
 \usage{
 betaMix(
   M,
+  dbname = NULL,
   tol = 1e-06,
   calcAcc = 1e-09,
   delta = 0.001,
@@ -23,15 +24,17 @@ betaMix(
 \arguments{
 \item{M}{A matrix with N rows (samples) and P columns (variables).}
 
+\item{dbname}{The sqlite database, if one is used to store the pairwise correlation data instead of using the cor function and storing the cor(M) matrix in memory (for situations in which P is very large).}
+
 \item{tol}{The convergence threshold for the EM algorithm (default= the maximum of 1e-6 and 1/(P(P-1)/2)).}
 
 \item{calcAcc}{The calculation accuracy threshold (to avoid values greater than 1 when calling asin) Default=1e-9.}
 
-\item{delta}{The probability of Type I error (default=1e-3)}
+\item{delta}{The probability of Type I error (default=1e-3).}
 
-\item{ppr}{The null posterior probability threshold (default=0.01)}
+\item{ppr}{The null posterior probability threshold (default=0.01).}
 
-\item{mxcnt}{The maximum number of EM iterations (default=200)}
+\item{mxcnt}{The maximum number of EM iterations (default=200).}
 
 \item{ahat}{The initial value for the first parameter of the nonnull beta distribution (default=1).}
 
@@ -50,7 +53,7 @@ betaMix(
 \value{
 A list with the following:
 \itemize{
-\item{angleMat} {A PxP matrix with angles between pairs of vectors.}
+\item{angleMat} {A PxP matrix with angles between pairs of vectors. If the correlation data is stored in SQLite, then the returned value is database name.}
 \item{z_j} {The statistics z_j=sin^2(angles).}
 \item{m_0} {The posterior null probabilities.}
 \item{p_0} {The estimated probability of the null component.}
@@ -66,16 +69,8 @@ From the pairwise correlations, the function calculates the statistics z_j=sin^2
 }
 \examples{
 \donttest{
-   data(SIM) # from the edgefinder package. Note that for betaMix is has 
-             # to be transposed (variables correspond to columns, samples to rows)
-   res <- betaMix(t(SIM), delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-   plotFittedBetaMix(t(SIM), res)
-   
-   # can use some plotting functions from edgefinder to visualize the network
-   adjMat <- sin(res$angleMat)^2 < res$ppthr
-   diag(adjMat) <- FALSE
-   graphComp <- graphComponents(adjMat)
-   head(summarizeClusters(graphComp))
-   plotCluster(adjMat, 1, graphComp, labels=TRUE, nodecol = "red")
+   data(SIM) # variables correspond to columns, samples to rows
+   res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   plotFittedBetaMix(res)
 }
 }
