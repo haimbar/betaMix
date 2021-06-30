@@ -165,20 +165,31 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
 #'    # See online documentation for usage when SQLite is used.
 #' }
 getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
+  if (any(nodes > res$nodes)) {
+    cat("Node number out of range. Max=",res$nodes,"\n")
+    return(NULL)
+  }
   if (is.null(ppthr))
     ppthr <- res$ppthr
   if(is.null(dbname)) {
     if (!is.null(nodes)){
       Atmp <- Matrix(res$angleMat[nodes,])
-      nbrs <- which(rowSums(sin(Atmp)^2 < res$ppthr) > 0)
+      nbrs <- which(rowSums(sin(Atmp)^2 < ppthr) > 0)
+      if (length(setdiff(nbrs,nodes)) == 0) {
+        cat("No neighbors found.\n")
+        return(NULL)
+      }
       selected <- sort(union(nodes,nbrs))
       angMat <- res$angleMat[selected, selected]
     } else {
       angMat <- res$angleMat
     }
-    A <- sin(angMat)^2 < res$ppthr
-    if(signed)
-      A[intersect(which(angMat > 0), which(angMat > pi/2))] <- -1
+    A <- sin(angMat)^2 < ppthr
+    if(signed){
+      negedges <- intersect(which(angMat > 0), which(angMat > pi/2))
+      if (length(negedges) > 0)
+        A[negedges] <- -1
+    }
     diag(A) <- FALSE
     return(A)
   }
@@ -313,6 +324,62 @@ shortSummary <- function(betamixobj) {
     cat("No. edges detected =", prettyNum(edges,big.mark = ","),"\n")
     cat("p0 =",format(p0,digits=3),"\n")
   })
+}
+
+
+
+#' Find spherical caps with more than one node.
+#'
+#' Takes a PxP adjacency Matrix as input and find apherical caps with more than one node in R^n. Cap centers can only appear in one cap, but other nodes are allowed to appear in multiple caps.
+#' @param A An adjacency Matrix(0/1), zeros on the main diagonal.
+#' @return A data frame with the following columns:
+#' \itemize{
+#' \item{node} {Node number (row/column in A.)}
+#' \item{capNum} {The cap number.}
+#' \item{isCtr} {1 if the node is the center of the cap, 0 otherwise.}
+#' \item{deg} {Node degree.}
+#' \item{cc} {Clustering coefficient.}
+#' }
+#' @export
+#' @examples
+#' \donttest{
+#'    data(SIM)
+#'    res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    adjMat <- getAdjMat(res)
+#'    caps <- sphericalCaps(adjMat)
+#'    head(caps)
+#' }
+sphericalCaps <- function(A) {
+  stopifnot(grep("Matrix", class(A)) > 0)
+  A <- abs(A)
+  diag(A) <- FALSE
+  deg <- Matrix::rowSums(A)
+  possibleCtrs <- which(deg > 0)
+  if (length(possibleCtrs) == 0) {
+    cat("No edges!\n")
+    return(NULL)
+  }
+  CC <- clusteringCoef(A)
+  retdf <- data.frame(matrix(vector(), 0, 5))
+  orddeg <- order(deg, decreasing = TRUE)
+  capNum <- 1
+  while (max(deg[orddeg]) > 0) {
+    capCtr <- orddeg[1]
+    if(deg[capCtr] == 0)
+      break
+    nbrs <- setdiff(which(A[capCtr,] != 0), capCtr)
+    orddeg <- setdiff(orddeg, union(capCtr, nbrs))
+    retdf <- rbind(retdf, cbind(c(capCtr,nbrs), 
+                                rep(capNum,length(c(capCtr,nbrs))),
+                                c(1,rep(0,length(nbrs))),
+                                deg[c(capCtr,nbrs)],
+                                CC[c(capCtr,nbrs)]))
+    capNum <- capNum + 1
+    if(length(orddeg) == 0)
+      break
+  }
+  colnames(retdf) <- c("node", "capNum", "isCtr", "deg", "cc")
+  return(retdf)
 }
 
 
