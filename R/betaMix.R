@@ -340,6 +340,7 @@ shortSummary <- function(betamixobj) {
 #' \item{deg} {Node degree.}
 #' \item{cc} {Clustering coefficient.}
 #' }
+#' @importFrom Matrix Matrix rowSums
 #' @export
 #' @examples
 #' \donttest{
