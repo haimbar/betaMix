@@ -156,6 +156,7 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
 #' @param ppthr A threshold to select edges. Default=NULL, in which case the returned value from betaMix() is used (available in res).
 #' @param signed If TRUE, the returned matrix will contain -1 for negatively correlated pairs. Otherwise, all correlated pairs will have 1 in the returned matrix (Default).
 #' @param nodes An optional parameter which allows to create a sparse adjacency matrix containing only the neighbors of the selected nodes (default=NULL).
+#' @importFrom Matrix Matrix rowSums colSums diag
 #' @export
 #' @examples
 #' \donttest{
@@ -174,7 +175,7 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
   if(is.null(dbname)) {
     if (!is.null(nodes)){
       Atmp <- Matrix(res$angleMat[nodes,])
-      nbrs <- which(rowSums(sin(Atmp)^2 < ppthr) > 0)
+      nbrs <- which(colSums(sin(Atmp)^2 < ppthr) > 0)
       if (length(setdiff(nbrs,nodes)) == 0) {
         cat("No neighbors found.\n")
         return(NULL)
@@ -340,7 +341,7 @@ shortSummary <- function(betamixobj) {
 #' \item{deg} {Node degree.}
 #' \item{cc} {Clustering coefficient.}
 #' }
-#' @importFrom Matrix Matrix rowSums
+#' @importFrom Matrix Matrix rowSums diag
 #' @export
 #' @examples
 #' \donttest{
