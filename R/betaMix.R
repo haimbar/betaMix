@@ -174,7 +174,11 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
     ppthr <- res$ppthr
   if(is.null(dbname)) {
     if (!is.null(nodes)){
-      Atmp <- Matrix(res$angleMat[nodes,])
+      if (length(nodes) == 1) {
+        Atmp <- Matrix(res$angleMat[nodes,], nrow=1)
+      } else {
+        Atmp <- Matrix(res$angleMat[nodes,])
+      }
       nbrs <- which(colSums(sin(Atmp)^2 < ppthr) > 0)
       if (length(setdiff(nbrs,nodes)) == 0) {
         cat("No neighbors found.\n")
