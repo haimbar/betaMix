@@ -37,8 +37,8 @@ NULL
 #' @importFrom stats cor dbeta pbeta qbeta optimize
 #' @examples
 #' \donttest{
-#'    data(SIM) # variables correspond to columns, samples to rows
-#'    res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix") # variables correspond to columns, samples to rows
+#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    plotFittedBetaMix(res)
 #' }
 
@@ -160,7 +160,7 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
 #' @export
 #' @examples
 #' \donttest{
-#'    res <- betaMix(SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    image(adjMat[1:80,1:80])
 #'    # See online documentation for usage when SQLite is used.
@@ -180,10 +180,9 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
         Atmp <- Matrix(res$angleMat[nodes,])
       }
       nbrs <- which(colSums(sin(Atmp)^2 < ppthr) > 0)
-      if (length(setdiff(nbrs,nodes)) == 0) {
-        cat("No neighbors found.\n")
-        return(NULL)
-      }
+      # if (length(setdiff(nbrs,nodes)) == 0) {
+      #   cat("No additional neighbors found.\n")
+      # }
       selected <- sort(union(nodes,nbrs))
       angMat <- res$angleMat[selected, selected]
     } else {
@@ -191,7 +190,7 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
     }
     A <- sin(angMat)^2 < ppthr
     if(signed){
-      negedges <- intersect(which(angMat > 0), which(angMat > pi/2))
+      negedges <- intersect(which(A > 0), which(angMat > pi/2))
       if (length(negedges) > 0)
         A[negedges] <- -1
     }
@@ -291,8 +290,8 @@ etafun <- function(eta,z_j0, m, xmax) {
 #' @export
 #' @examples
 #' \donttest{
-#'    data(SIM)
-#'    res <- betaMix(SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    plotFittedBetaMix(res)
 #' }
 plotFittedBetaMix <- function(betaMixObj, yLim=5) {
@@ -316,8 +315,8 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
 #' @export
 #' @examples
 #' \donttest{
-#'    data(SIM)
-#'    res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    shortSummary(res)
 #' }
 shortSummary <- function(betamixobj) {
@@ -349,11 +348,13 @@ shortSummary <- function(betamixobj) {
 #' @export
 #' @examples
 #' \donttest{
-#'    data(SIM)
-#'    res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    caps <- sphericalCaps(adjMat)
 #'    head(caps)
+#'    am <- getAdjMat(res, signed = TRUE, nodes=caps$node[which(caps$capNum==1)])
+#'    plotCluster(am,1,edgecols = c("blue","red"), labels=TRUE)
 #' }
 sphericalCaps <- function(A) {
   stopifnot(grep("Matrix", class(A)) > 0)
@@ -375,11 +376,13 @@ sphericalCaps <- function(A) {
       break
     nbrs <- setdiff(which(A[capCtr,] != 0), capCtr)
     orddeg <- setdiff(orddeg, union(capCtr, nbrs))
-    retdf <- rbind(retdf, cbind(c(capCtr,nbrs), 
-                                rep(capNum,length(c(capCtr,nbrs))),
-                                c(1,rep(0,length(nbrs))),
-                                deg[c(capCtr,nbrs)],
-                                CC[c(capCtr,nbrs)]))
+    tmpdf <- cbind(c(capCtr,nbrs), 
+                   rep(capNum,length(c(capCtr,nbrs))),
+                   c(1,rep(0,length(nbrs))),
+                   deg[c(capCtr,nbrs)],
+                   CC[c(capCtr,nbrs)])
+    rownames(tmpdf) <- sprintf("%s_%04d",rownames(tmpdf),tmpdf[,2])
+    retdf <- rbind(retdf, tmpdf)
     capNum <- capNum + 1
     if(length(orddeg) == 0)
       break
@@ -410,8 +413,8 @@ sphericalCaps <- function(A) {
 #' @export
 #' @examples
 #' \donttest{
-#'    data(SIM)
-#'    res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    SimComp <- graphComponents(adjMat)
 #'    head(SimComp)
@@ -476,8 +479,8 @@ graphComponents <- function(A, minCtr=5, type=1) {
 #' @export
 #' @examples
 #' \donttest{
-#'    data(SIM)
-#'    res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    SimComp <- graphComponents(adjMat)
 #'    (summtab <- summarizeClusters(SimComp))
@@ -562,8 +565,8 @@ collapsedGraph <- function(A, clustersInfo) {
 #' @export
 #' @examples
 #' \donttest{
-#'    data(SIM)
-#'    res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    clusteringCoef(adjMat)
 #' }
@@ -594,8 +597,8 @@ clusteringCoef <- function(A) {
 #' @import stats graphics
 #' @examples
 #' \donttest{
-#'    data(SIM)
-#'    res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    SimComp <- graphComponents(adjMat)
 #'    plotDegCC(res,SimComp)
@@ -627,8 +630,8 @@ plotDegCC <- function(betamixobj, clusterInfo=NULL, highlightNodes=NULL) {
 #' @export
 #' @examples
 #' \donttest{
-#'    data(SIM)
-#'    res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    SimComp <- graphComponents(adjMat)
 #'    plotBitmapCC(adjMat)
@@ -663,8 +666,8 @@ plotBitmapCC <- function(AdjMat, clusterInfo=NULL, orderByCluster=FALSE, showMin
 #' @importFrom grDevices col2rgb colours rgb
 #' @examples
 #' \donttest{
-#'    data(SIM)
-#'    res <- betaMix(SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res, signed=TRUE)
 #'    SimComp <- graphComponents(adjMat)
 #'    plotCluster(adjMat, 2, SimComp)
@@ -672,7 +675,7 @@ plotBitmapCC <- function(AdjMat, clusterInfo=NULL, orderByCluster=FALSE, showMin
 #' }
 plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol="blue", labelsize=1, figtitle=NULL, edgecols="grey88") {
   if(is.null(clusterInfo))
-    clusterInfo <- graphComponents(AdjMat)
+    clusterInfo <- graphComponents(AdjMat, minCtr=2, type=0)
   if(length(nodecol) < nrow(AdjMat))
     nodecol <- rep(nodecol[1],length=nrow(AdjMat))
   ids <- which(clusterInfo$clustNo == clustNo)
@@ -729,8 +732,8 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol
 #' @export
 #' @examples
 #' \donttest{
-#'    data(SIM)
-#'    res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    AdjMat <- shortestPathDistance(adjMat, numSteps=2)
 #'    Matrix::image( (AdjMat>0)[1:200,1:200])
@@ -786,6 +789,6 @@ NULL
 #' @docType data
 #' @keywords datasets
 #' @name SIM
-#' @usage data(SIM)
+#' @usage data(SIM,package = "betaMix")
 #' @format A 1000 by 200 matrix, representing 50 hubs
 NULL

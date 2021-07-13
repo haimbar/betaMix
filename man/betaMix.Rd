@@ -69,8 +69,8 @@ From the pairwise correlations, the function calculates the statistics z_j=sin^2
 }
 \examples{
 \donttest{
-   data(SIM) # variables correspond to columns, samples to rows
-   res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   data(SIM,package = "betaMix") # variables correspond to columns, samples to rows
+   res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    plotFittedBetaMix(res)
 }
 }

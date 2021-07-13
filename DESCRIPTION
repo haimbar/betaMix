@@ -1,7 +1,7 @@
 Package: betaMix
 Type: Package
 Title: Detect Edges in Co-expression Graphs
-Version: 0.1.11
+Version: 0.1.12
 Author: Haim Bar
 Maintainer: Haim Bar <haim.bar@uconn.edu>
 Imports: Rcpp (>= 1.0.5), RcppArmadillo, Matrix, RSQLite

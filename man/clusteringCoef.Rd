@@ -17,8 +17,8 @@ Calculate the clustering coefficient of each node.
 }
 \examples{
 \donttest{
-   data(SIM)
-   res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   data(SIM,package = "betaMix")
+   res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res)
    clusteringCoef(adjMat)
 }

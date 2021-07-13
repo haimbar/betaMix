@@ -24,10 +24,12 @@ Takes a PxP adjacency Matrix as input and find apherical caps with more than one
 }
 \examples{
 \donttest{
-   data(SIM)
-   res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   data(SIM,package = "betaMix")
+   res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res)
    caps <- sphericalCaps(adjMat)
    head(caps)
+   am <- getAdjMat(res, signed = TRUE, nodes=caps$node[which(caps$capNum==1)])
+   plotCluster(am,1,edgecols = c("blue","red"), labels=TRUE)
 }
 }

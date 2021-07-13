@@ -22,7 +22,7 @@ SQL storage should be used if P is large and the calculating and storing the cor
 }
 \examples{
 \donttest{
-   res <- betaMix(SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res)
    image(adjMat[1:80,1:80])
    # See online documentation for usage when SQLite is used.

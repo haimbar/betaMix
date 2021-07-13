@@ -32,8 +32,8 @@ Take an adjacency Matrix as input and find clusters. For each node, find the deg
 }
 \examples{
 \donttest{
-   data(SIM)
-   res <- betaMix(SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   data(SIM,package = "betaMix")
+   res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res)
    SimComp <- graphComponents(adjMat)
    head(SimComp)
