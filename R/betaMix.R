@@ -85,16 +85,16 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
   if(msg) { cat("Fitting the model...\n") }
   tol <- max(tol, 1/length(z_j))
   inNonNullSupport <- which(z_j < nnmax)
-  p0f0 <- p0*dbeta(z_j, etahat, 0.5)
+  p0f0 <- p0*exp(ldbeta(z_j, etahat, 0.5))
   p1f1 <- rep(0,length(z_j))
-  p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/nnmax, ahat, bhat)
+  p1f1[inNonNullSupport] <- (1-p0)*exp(ldbeta(z_j[inNonNullSupport]/nnmax, ahat, bhat))
   m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
   p0new <- mean(m0)
   cnt <- 0
   nonNullMax <- nnmax
   while (abs(p0-p0new) > tol & (cnt <- cnt+1) < mxcnt) {
     p0 <- p0new
-    ests <- try(nleqslv(c(ahat,bhat), MLEfun, #jac=jacmle,
+    ests <- try(nleqslv(c(ahat,bhat), MLEfun, jac=jacmle,
                         z_j0=z_j, m=m0, xmax=nonNullMax)$x, silent=T)
     if (class(ests) == "try-error") {
       message("betaMix error when estimating a and b:", ests,"\n")
@@ -111,9 +111,9 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
         message("betaMix error when estimating eta:", etahat,"\n")
       }
     }
-    p0f0 <- p0*dbeta(z_j, etahat, 1/2)
+    p0f0 <- p0*exp(ldbeta(z_j, etahat, 1/2))
     p1f1 <- rep(0, length(z_j))
-    p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/nonNullMax, ahat, bhat)
+    p1f1[inNonNullSupport] <- (1-p0)*exp(ldbeta(z_j[inNonNullSupport]/nonNullMax, ahat, bhat))
     m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
     nonNullMax <- optimize(rightBetaThreshold, interval=c(qbeta(0.99,etahat,0.5),1), z_jz=z_j, 
                            eta=etahat,p0=p0, delta=delta)$minimum
@@ -133,9 +133,9 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
       z_j <- z_jall
     }
     inNonNullSupport <- which(z_j < nonNullMax)
-    p0f0 <- p0*dbeta(z_j,etahat,1/2)
+    p0f0 <- p0*exp(ldbeta(z_j,etahat,1/2))
     p1f1 <- rep(0,length(z_j))
-    p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/nonNullMax,ahat,bhat)
+    p1f1[inNonNullSupport] <- (1-p0)*exp(ldbeta(z_j[inNonNullSupport]/nonNullMax,ahat,bhat))
     m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
 #    m0 <- p0f0/(p0f0+p1f1) # the posterior null probability of all pairs
     ppthr = max(min(z_j[which(m0 > ppr)]), qbeta(delta,etahat,1/2))
@@ -299,10 +299,10 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
     ccc <- seq(0.001,0.999,length=1000)
     hist(z_j,freq=F,breaks=300, border="grey",main="",ylim=c(0,yLim),
          xlim=c(0,1),xlab=expression(sin^{2} ~ (theta)))
-    lines(ccc,(p0)*dbeta(ccc,(betaMixObj$nodes-1)/2,0.5),col=3, lwd=4)
-    lines(ccc,(p0)*dbeta(ccc,etahat,0.5),col=5, lwd=4,lty=2)
-    lines(ccc,(1-p0)*dbeta(ccc/nonNullMax,ahat,bhat),lwd=1,col=2)
-    lines(ccc, (1-p0)*dbeta(ccc/nonNullMax,ahat,bhat)+(p0)*dbeta(ccc,etahat,0.5), col=4, lwd=2)
+    lines(ccc,(p0)*exp(ldbeta(ccc,(betaMixObj$nodes-1)/2,0.5)), col=3, lwd=4)
+    lines(ccc,(p0)*exp(ldbeta(ccc,etahat,0.5)), col=5, lwd=4,lty=2)
+    lines(ccc,(1-p0)*exp(ldbeta(ccc/nonNullMax,ahat,bhat)), lwd=1,col=2)
+    lines(ccc, (1-p0)*exp(ldbeta(ccc/nonNullMax,ahat,bhat))+(p0)*exp(ldbeta(ccc,etahat,0.5)), col=4, lwd=2)
     cccsig <- ccc[which(ccc<ppthr)]
     rect(0,0, ppthr, yLim, col='#FF7F5020', border = "orange")
   })
@@ -757,6 +757,29 @@ shortestPathDistance <- function(AdjMat, numSteps=0) {
   minDist
 }
 
+
+#' Return a Matrix with the shortest path distance between nodes (check up to numSteps.)
+#'
+#' return the adjacency matrix of expMat connecting neighbors up to numSteps away.
+#' @param AdjMat An adjacency Matrix (0/1).
+#' @param numSteps The maximum number of edges between pairs of nodes. If numSteps=0, returns the input matrix. numSteps=1 adds neighbors of direct neighbors, etc.
+#' @return A Matrix containing the shortset paths between nodes i and j
+#' @export
+#' @examples
+#' \dontrun{
+#'    data(SIM,package = "betaMix")
+#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    adjMat <- getAdjMat(res)
+#'    AdjMat <- shortestPathDistance(adjMat, numSteps=2)
+#'    Matrix::image( (AdjMat>0)[1:200,1:200])
+#'    adjMat1 <- AdjMat>0
+#'    SimComp <- graphComponents(adjMat1)
+#'    head(summarizeClusters(SimComp))
+#' }
+
+ldbeta <- function(x, a, b, tol=1e-12) {
+  lgamma(a+b)-lgamma(a)-lgamma(b) + (a-1)*log(pmax(x, tol))+(b-1)*log(1-pmin(x, 1-tol))
+}
 
 
 #' Metabolite Expression data for the the dry seed group.
