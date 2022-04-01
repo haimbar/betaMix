@@ -36,7 +36,7 @@ NULL
 #' @import DBI stats nleqslv
 #' @importFrom stats cor dbeta pbeta qbeta optimize
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix") # variables correspond to columns, samples to rows
 #'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    plotFittedBetaMix(res)
@@ -81,7 +81,7 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
       z_j <- z_j[sample(length(z_j), subsamplesize)]
     }
   }
-  p0 <- length(which(z_j > qbeta(0.1, etahat, 0.5)))/(0.9*length(z_j))
+  p0 <- min(length(which(z_j > qbeta(0.1, etahat, 0.5)))/(0.9*length(z_j)), 1)
   if(msg) { cat("Fitting the model...\n") }
   tol <- max(tol, 1/length(z_j))
   inNonNullSupport <- which(z_j < nnmax)
@@ -94,24 +94,24 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
   nonNullMax <- nnmax
   while (abs(p0-p0new) > tol & (cnt <- cnt+1) < mxcnt) {
     p0 <- p0new
-    ests <- try(nleqslv(c(ahat,bhat), MLEfun, jac=jacmle,
+    ests <- try(nleqslv(c(ahat,bhat), MLEfun, #jac=jacmle,
                         z_j0=z_j, m=m0, xmax=nonNullMax)$x, silent=T)
     if (class(ests) == "try-error") {
       message("betaMix error when estimating a and b:", ests,"\n")
     }
-    
     ahat <- ests[1]
     bhat <- ests[2]
     if(ind) {
       etahat <- (N-1)/2
     } else {
       etahat <- try(uniroot(etafun,c(1,(N-1)/2), z_j0=z_j, m=m0,
+                            lower=1, upper=(N-1)/2,
                             xmax=nonNullMax)$root, silent=T)
       if (class(etahat) == "try-error") {
         message("betaMix error when estimating eta:", etahat,"\n")
       }
     }
-    p0f0 <- p0*dbeta(z_j,etahat,1/2)
+    p0f0 <- p0*dbeta(z_j, etahat, 1/2)
     p1f1 <- rep(0, length(z_j))
     p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/nonNullMax, ahat, bhat)
     m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
@@ -136,11 +136,11 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
     p0f0 <- p0*dbeta(z_j,etahat,1/2)
     p1f1 <- rep(0,length(z_j))
     p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/nonNullMax,ahat,bhat)
-    m0 <- p0f0/(p0f0+p1f1) # the posterior null probability of all pairs
+    m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
+#    m0 <- p0f0/(p0f0+p1f1) # the posterior null probability of all pairs
     ppthr = max(min(z_j[which(m0 > ppr)]), qbeta(delta,etahat,1/2))
     p0 <- mean(m0)
     edges <- (sum(sin(angleMat)^2 < ppthr) - P)/2
-    
   }
   if(msg) { cat("Done.\n") }
   list(angleMat=angleMat, z_j=z_j, m0=m0,p0=p0, ahat=ahat, bhat=bhat, etahat=etahat,
@@ -159,7 +159,7 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
 #' @importFrom Matrix Matrix rowSums colSums diag
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    image(adjMat[1:80,1:80])
@@ -289,7 +289,7 @@ etafun <- function(eta,z_j0, m, xmax) {
 #' @param yLim The maximum value on the y-axis (default=5)
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix")
 #'    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    plotFittedBetaMix(res)
@@ -314,7 +314,7 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
 #' @param betamixobj The object (list) returned from the betaMix function.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix")
 #'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    shortSummary(res)
@@ -347,7 +347,7 @@ shortSummary <- function(betamixobj) {
 #' @importFrom Matrix Matrix rowSums diag
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix")
 #'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
@@ -412,7 +412,7 @@ sphericalCaps <- function(A) {
 #' }
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix")
 #'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
@@ -478,7 +478,7 @@ graphComponents <- function(A, minCtr=5, type=1) {
 #' @return A matrix with cluster number, number of nodes, and fivenum summaries for the degrees of nodes in the cluster, and the percentage of edges that are within the cluster.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix")
 #'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
@@ -515,7 +515,7 @@ summarizeClusters <- function(clustersInfo) {
 #' @return A weighted adjacency matrix between clusters and unclustered nodes.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(DrySeeds)
 #'    res <- betaMix(DrySeeds, delta = 1e-4,ppr = 0.01, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
@@ -564,7 +564,7 @@ collapsedGraph <- function(A, clustersInfo) {
 #' @return A vector with the clustering coefficient of each node.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix")
 #'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
@@ -596,7 +596,7 @@ clusteringCoef <- function(A) {
 #' @export
 #' @import stats graphics
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix")
 #'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
@@ -629,7 +629,7 @@ plotDegCC <- function(betamixobj, clusterInfo=NULL, highlightNodes=NULL) {
 #' @param showMinDegree Non-negative integer indicating the minimum degree of nodes that should be displayed. Default=0 (all nodes).
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix")
 #'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
@@ -665,7 +665,7 @@ plotBitmapCC <- function(AdjMat, clusterInfo=NULL, orderByCluster=FALSE, showMin
 #' @export
 #' @importFrom grDevices col2rgb colours rgb
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix")
 #'    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res, signed=TRUE)
@@ -731,7 +731,7 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol
 #' @return A Matrix containing the shortset paths between nodes i and j
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'    data(SIM,package = "betaMix")
 #'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)

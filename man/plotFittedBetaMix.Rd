@@ -15,7 +15,7 @@ plotFittedBetaMix(betaMixObj, yLim = 5)
 Plot the histogram of the z_j and the fitted mixture distribution.
 }
 \examples{
-\donttest{
+\dontrun{
    data(SIM,package = "betaMix")
    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    plotFittedBetaMix(res)

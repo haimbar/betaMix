@@ -18,7 +18,7 @@ A Matrix containing the shortset paths between nodes i and j
 return the adjacency matrix of expMat connecting neighbors up to numSteps away.
 }
 \examples{
-\donttest{
+\dontrun{
    data(SIM,package = "betaMix")
    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res)

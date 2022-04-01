@@ -18,7 +18,7 @@ A weighted adjacency matrix between clusters and unclustered nodes.
 Return an adjacency matrix after collapsing clusters into their central nodes.
 }
 \examples{
-\donttest{
+\dontrun{
    data(DrySeeds)
    res <- betaMix(DrySeeds, delta = 1e-4,ppr = 0.01, ind=TRUE)
    adjMat <- getAdjMat(res)

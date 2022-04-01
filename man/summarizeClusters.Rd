@@ -16,7 +16,7 @@ A matrix with cluster number, number of nodes, and fivenum summaries for the deg
 Takes an object obtained from graphComponents and prints and returns summary statistics.
 }
 \examples{
-\donttest{
+\dontrun{
    data(SIM,package = "betaMix")
    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res)

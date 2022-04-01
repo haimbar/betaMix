@@ -6,6 +6,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // calcCorr
 void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, double zeroSD);
 RcppExport SEXP _betaMix_calcCorr(SEXP flsSEXP, SEXP MaxNameLenSEXP, SEXP recSizeSEXP, SEXP PSEXP, SEXP nSEXP, SEXP zeroSDSEXP) {

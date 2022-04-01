@@ -68,7 +68,7 @@ A list with the following:
 From the pairwise correlations, the function calculates the statistics z_j=sin^2(arccos(cor(y_i,y_j))) and fits the two-component model using the EM algorithm.
 }
 \examples{
-\donttest{
+\dontrun{
    data(SIM,package = "betaMix") # variables correspond to columns, samples to rows
    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    plotFittedBetaMix(res)

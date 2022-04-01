@@ -21,7 +21,7 @@ getAdjMat(res, dbname = NULL, ppthr = NULL, signed = FALSE, nodes = NULL)
 SQL storage should be used if P is large and the calculating and storing the correlation matrix will require too much memory.
 }
 \examples{
-\donttest{
+\dontrun{
    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res)
    image(adjMat[1:80,1:80])

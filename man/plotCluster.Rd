@@ -36,7 +36,7 @@ plotCluster(
 Plot a cluster network with all the nodes and edges - the central node is marked by a black circle. The radius of each point corresponds to its degree. The opacity corresponds to the percentage of edges from the node that is in the cluster (the darker it is, the larger the percentage of edges is within the cluster.) The distance from the center corresponds to the relative dissimilarity with the central node. This is computed as the number of neighbors the node and the central node do not have in common.
 }
 \examples{
-\donttest{
+\dontrun{
    data(SIM,package = "betaMix")
    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res, signed=TRUE)

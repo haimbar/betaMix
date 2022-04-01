@@ -13,7 +13,7 @@ shortSummary(betamixobj)
 Show the number of nodes, the number of possible and detected edges, the estimated proportion of uncorrelated pairs.
 }
 \examples{
-\donttest{
+\dontrun{
    data(SIM,package = "betaMix")
    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    shortSummary(res)
