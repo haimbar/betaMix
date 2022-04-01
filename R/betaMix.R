@@ -260,6 +260,7 @@ jacmle <- function(par, z_j0, m, xmax) {
              (trigamma(a)-trigamma(a+b))),2,2)
 }
 
+
 # The maximum likelihood estimation of a,b of the nonnull component.
 # nu (eta = (nu-1)/2) is estimated separately.
 MLEfun <- function(par, z_j0, m, xmax) {
@@ -272,6 +273,10 @@ MLEfun <- function(par, z_j0, m, xmax) {
   y[1] <- (digamma(a)-digamma(a+b) - sum((1-m)*log(z_j0))/sum(1-m))^2
   y[2] <- (digamma(b)-digamma(a+b) - sum((1-m)*log(1-z_j0))/sum(1-m))^2
   y  
+}
+
+ldbeta <- function(x, a, b, tol=1e-12) {
+  lgamma(a+b)-lgamma(a)-lgamma(b) + (a-1)*log(pmax(x, tol))+(b-1)*log(1-pmin(x, 1-tol))
 }
 
 # The maximum likelihood estimation of the null parameter (if samples are dependent).
@@ -299,9 +304,9 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
     ccc <- seq(0.001,0.999,length=1000)
     hist(z_j,freq=F,breaks=300, border="grey",main="",ylim=c(0,yLim),
          xlim=c(0,1),xlab=expression(sin^{2} ~ (theta)))
-    lines(ccc,(p0)*exp(ldbeta(ccc,(betaMixObj$nodes-1)/2,0.5)), col=3, lwd=4)
-    lines(ccc,(p0)*exp(ldbeta(ccc,etahat,0.5)), col=5, lwd=4,lty=2)
-    lines(ccc,(1-p0)*exp(ldbeta(ccc/nonNullMax,ahat,bhat)), lwd=1,col=2)
+    lines(ccc,(p0)*exp(ldbeta(ccc,(betaMixObj$nodes-1)/2,0.5)),col=3, lwd=4)
+    lines(ccc,(p0)*exp(ldbeta(ccc,etahat,0.5)),col=5, lwd=4,lty=2)
+    lines(ccc,(1-p0)*exp(ldbeta(ccc/nonNullMax,ahat,bhat)),lwd=1,col=2)
     lines(ccc, (1-p0)*exp(ldbeta(ccc/nonNullMax,ahat,bhat))+(p0)*exp(ldbeta(ccc,etahat,0.5)), col=4, lwd=2)
     cccsig <- ccc[which(ccc<ppthr)]
     rect(0,0, ppthr, yLim, col='#FF7F5020', border = "orange")
@@ -757,29 +762,6 @@ shortestPathDistance <- function(AdjMat, numSteps=0) {
   minDist
 }
 
-
-#' Return a Matrix with the shortest path distance between nodes (check up to numSteps.)
-#'
-#' return the adjacency matrix of expMat connecting neighbors up to numSteps away.
-#' @param AdjMat An adjacency Matrix (0/1).
-#' @param numSteps The maximum number of edges between pairs of nodes. If numSteps=0, returns the input matrix. numSteps=1 adds neighbors of direct neighbors, etc.
-#' @return A Matrix containing the shortset paths between nodes i and j
-#' @export
-#' @examples
-#' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    adjMat <- getAdjMat(res)
-#'    AdjMat <- shortestPathDistance(adjMat, numSteps=2)
-#'    Matrix::image( (AdjMat>0)[1:200,1:200])
-#'    adjMat1 <- AdjMat>0
-#'    SimComp <- graphComponents(adjMat1)
-#'    head(summarizeClusters(SimComp))
-#' }
-
-ldbeta <- function(x, a, b, tol=1e-12) {
-  lgamma(a+b)-lgamma(a)-lgamma(b) + (a-1)*log(pmax(x, tol))+(b-1)*log(1-pmin(x, 1-tol))
-}
 
 
 #' Metabolite Expression data for the the dry seed group.
