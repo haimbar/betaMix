@@ -9,15 +9,14 @@ betaMix(
   dbname = NULL,
   tol = 1e-06,
   calcAcc = 1e-09,
-  delta = 0.001,
+  maxalpha = 1e-04,
   ppr = 0.01,
   mxcnt = 200,
-  ahat = 1,
+  ahat = 8,
   bhat = 2,
-  nnmax = 0.999,
-  subsamplesize = 0,
+  subsamplesize = 50000,
   seed = 912469,
-  ind = FALSE,
+  ind = TRUE,
   msg = TRUE
 )
 }
@@ -26,27 +25,25 @@ betaMix(
 
 \item{dbname}{The sqlite database, if one is used to store the pairwise correlation data instead of using the cor function and storing the cor(M) matrix in memory (for situations in which P is very large).}
 
-\item{tol}{The convergence threshold for the EM algorithm (default= the maximum of 1e-6 and 1/(P(P-1)/2)).}
+\item{tol}{The convergence threshold for the EM algorithm (default= the maximum of the user's input and 1/(P(P-1)/2)).}
 
-\item{calcAcc}{The calculation accuracy threshold (to avoid values greater than 1 when calling asin) Default=1e-9.}
+\item{calcAcc}{The calculation accuracy threshold (to avoid values greater than 1 when calling asin.) Default=1e-9.}
 
-\item{delta}{The probability of Type I error (default=1e-3).}
+\item{maxalpha}{The probability of Type I error (default=1e-4). For a large P, 0.01/(P*(P-1)/2) is used.}
 
 \item{ppr}{The null posterior probability threshold (default=0.01).}
 
 \item{mxcnt}{The maximum number of EM iterations (default=200).}
 
-\item{ahat}{The initial value for the first parameter of the nonnull beta distribution (default=1).}
+\item{ahat}{The initial value for the first parameter of the nonnull beta distribution (default=8).}
 
 \item{bhat}{The initial value for the second parameter of the nonnull beta distribution (default=2).}
 
-\item{nnmax}{The value of z_j above which it is not expected to find nonnull edges (default=0.999).}
-
-\item{subsamplesize}{If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=0, but for very large P, it's highly recommended to change this value.)}
+\item{subsamplesize}{If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=50000).}
 
 \item{seed}{The random seed to use if selecting a subset with the subsamplesize parameter (default=912469).}
 
-\item{ind}{Whether the N samples should be assumed to be independent (default=FALSE).}
+\item{ind}{Whether the N samples should be assumed to be independent (default=TRUE).}
 
 \item{msg}{Whether to print intermediate output messages (default=TRUE).}
 }
@@ -60,7 +57,7 @@ A list with the following:
 \item{ahat} {The estimated first parameter of the nonnull beta component.}
 \item{bhat} {The estimated second parameter of the nonnull beta component.}
 \item{etahat} {If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
-\item {nonNullMax} {The estimated right-hand side of the support of the non-null component.}
+\item {bmax} {The estimated right-hand side of the support of the non-null component.}
 \item {ppthr} {The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
 }
 }
@@ -70,7 +67,7 @@ From the pairwise correlations, the function calculates the statistics z_j=sin^2
 \examples{
 \dontrun{
    data(SIM,package = "betaMix") # variables correspond to columns, samples to rows
-   res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    plotFittedBetaMix(res)
 }
 }

@@ -38,7 +38,7 @@ Plot a cluster network with all the nodes and edges - the central node is marked
 \examples{
 \dontrun{
    data(SIM,package = "betaMix")
-   res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   res <- betaMix(betaMix::SIM, maxalpha = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res, signed=TRUE)
    SimComp <- graphComponents(adjMat)
    plotCluster(adjMat, 2, SimComp)

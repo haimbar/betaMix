@@ -8,17 +8,16 @@ NULL
 #' From the pairwise correlations, the function calculates the statistics z_j=sin^2(arccos(cor(y_i,y_j))) and fits the two-component model using the EM algorithm.
 #' @param M A matrix with N rows (samples) and P columns (variables).
 #' @param dbname The sqlite database, if one is used to store the pairwise correlation data instead of using the cor function and storing the cor(M) matrix in memory (for situations in which P is very large).
-#' @param tol The convergence threshold for the EM algorithm (default= the maximum of 1e-6 and 1/(P(P-1)/2)).
-#' @param calcAcc The calculation accuracy threshold (to avoid values greater than 1 when calling asin) Default=1e-9.
-#' @param delta The probability of Type I error (default=1e-3).
+#' @param tol The convergence threshold for the EM algorithm (default= the maximum of the user's input and 1/(P(P-1)/2)).
+#' @param calcAcc The calculation accuracy threshold (to avoid values greater than 1 when calling asin.) Default=1e-9.
+#' @param maxalpha The probability of Type I error (default=1e-4). For a large P, 0.01/(P*(P-1)/2) is used.
 #' @param ppr The null posterior probability threshold (default=0.01).
 #' @param mxcnt The maximum number of EM iterations (default=200).
-#' @param ahat The initial value for the first parameter of the nonnull beta distribution (default=1).
+#' @param ahat The initial value for the first parameter of the nonnull beta distribution (default=8).
 #' @param bhat The initial value for the second parameter of the nonnull beta distribution (default=2).
-#' @param nnmax The value of z_j above which it is not expected to find nonnull edges (default=0.999).
-#' @param subsamplesize If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=0, but for very large P, it's highly recommended to change this value.)
+#' @param subsamplesize If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=50000).
 #' @param seed The random seed to use if selecting a subset with the subsamplesize parameter (default=912469).
-#' @param ind Whether the N samples should be assumed to be independent (default=FALSE).
+#' @param ind Whether the N samples should be assumed to be independent (default=TRUE).
 #' @param msg Whether to print intermediate output messages (default=TRUE).
 #' @return A list with the following:
 #' \itemize{
@@ -29,7 +28,7 @@ NULL
 #' \item{ahat} {The estimated first parameter of the nonnull beta component.}
 #' \item{bhat} {The estimated second parameter of the nonnull beta component.}
 #' \item{etahat} {If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
-#' \item {nonNullMax} {The estimated right-hand side of the support of the non-null component.}
+#' \item {bmax} {The estimated right-hand side of the support of the non-null component.}
 #' \item {ppthr} {The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
 #' }
 #' @export
@@ -38,13 +37,13 @@ NULL
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix") # variables correspond to columns, samples to rows
-#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    plotFittedBetaMix(res)
 #' }
 
-betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
-                    ppr=0.01, mxcnt=200, ahat=1, bhat=2, nnmax=0.999,
-                    subsamplesize=0, seed=912469, ind=FALSE, msg=TRUE) {
+betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, maxalpha=1e-4,
+                    ppr=0.01, mxcnt=200, ahat=8, bhat=2,
+                    subsamplesize=50000, seed=912469, ind=TRUE, msg=TRUE) {
   if(msg) { cat("Generating the z_ij statistics...\n") }
   if (!is.null(dbname)) {
     if(!file.exists(dbname)) {
@@ -59,11 +58,12 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
     N <- metadata$n
     etahat <- (N-1)/2
     if (subsamplesize < 20000)
-      subsamplesize <- 20000
-    res <- dbSendQuery(con, sprintf("SELECT * FROM correlations ORDER BY random()  LIMIT %d",subsamplesize))
+      res <- dbSendQuery(con, sprintf("SELECT * FROM correlations"))
+    else
+      res <- dbSendQuery(con, sprintf("SELECT * FROM correlations ORDER BY random()  LIMIT %d",subsamplesize))
     subtable <- dbFetch(res)
     dbClearResult(res)
-    z_j <- pmin(1 - calcAcc, pmax(calcAcc,subtable$zij))
+    z_j <- sort(pmin(1 - calcAcc, pmax(calcAcc, subtable$zij)))
     angleMat <- dbname
   } else {
     N <- nrow(M)
@@ -73,55 +73,51 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
     if(any(is.na(corM)))
       corM[which(is.na(corM))] <- 0
     angleMat <- acos(corM)
-    z_j <- pmin(1-calcAcc, pmax(calcAcc, (sin(angleMat[which(lower.tri(angleMat))]))^2))
+    z_j <- pmin(1-calcAcc, 
+                pmax(calcAcc, (sin(angleMat[which(lower.tri(angleMat))]))^2))
     z_jall <- c()
     if ((length(z_j) > subsamplesize) & (subsamplesize >= 20000)) {
       z_jall <- z_j
       set.seed(seed)
-      z_j <- z_j[sample(length(z_j), subsamplesize)]
+      z_j <- sort(z_j[sample(length(z_j), subsamplesize)])
     }
   }
+  maxalpha <- min(maxalpha, 0.01/(P*(P-1)/2))
+  bmax <- 1
+  tol <- max(tol, 1/length(z_j))
   p0 <- min(length(which(z_j > qbeta(0.1, etahat, 0.5)))/(0.9*length(z_j)), 1)
   if(msg) { cat("Fitting the model...\n") }
-  tol <- max(tol, 1/length(z_j))
-  inNonNullSupport <- which(z_j < nnmax)
-  p0f0 <- p0*exp(ldbeta(z_j, etahat, 0.5))
+  inNonNullSupport <- which(z_j <= bmax)
+  p0f0 <- p0*dbeta(z_j, etahat, 0.5)
   p1f1 <- rep(0,length(z_j))
-  p1f1[inNonNullSupport] <- (1-p0)*exp(ldbeta(z_j[inNonNullSupport]/nnmax, ahat, bhat))
+  p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/bmax, ahat, bhat)
   m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
   p0new <- mean(m0)
   cnt <- 0
-  nonNullMax <- nnmax
   while (abs(p0-p0new) > tol & (cnt <- cnt+1) < mxcnt) {
     p0 <- p0new
-    ests <- try(nleqslv(c(ahat,bhat), MLEfun, jac=jacmle,
-                        z_j0=z_j, m=m0, xmax=nonNullMax)$x, silent=T)
-    if (class(ests) == "try-error") {
-      message("betaMix error when estimating a and b:", ests,"\n")
+    if(!ind) {
+      etahat <- try(uniroot(etafun,c(1,(N-1)/2), z_j=z_j, m0=m0,
+                            lower=1, upper=(N-1)/2)$root, silent=T)
+      if (class(etahat) == "try-error")
+        message("betaMix error when estimating eta:", etahat,"\n")
     }
+    bmax <- min(z_j[which(z_j > qbeta(100/length(z_j), etahat, 0.5))])
+    inNonNullSupport <- which(z_j < bmax)
+    ests <- try(nleqslv(c(ahat,bhat), MLEfun,# jac=jacmle,
+                        z_j0=z_j, m=m0, xmax=bmax)$x, silent=T)
+    if (class(ests) == "try-error")
+      message("betaMix error when estimating a and b:", ests,"\n")
     ahat <- ests[1]
     bhat <- ests[2]
-    if(ind) {
-      etahat <- (N-1)/2
-    } else {
-      etahat <- try(uniroot(etafun,c(1,(N-1)/2), z_j0=z_j, m=m0,
-                            lower=1, upper=(N-1)/2,
-                            xmax=nonNullMax)$root, silent=T)
-      if (class(etahat) == "try-error") {
-        message("betaMix error when estimating eta:", etahat,"\n")
-      }
-    }
-    p0f0 <- p0*exp(ldbeta(z_j, etahat, 1/2))
+    p0f0 <- p0*dbeta(z_j, etahat, 0.5)
     p1f1 <- rep(0, length(z_j))
-    p1f1[inNonNullSupport] <- (1-p0)*exp(ldbeta(z_j[inNonNullSupport]/nonNullMax, ahat, bhat))
+    p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/bmax, ahat, bhat)
     m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
-    nonNullMax <- optimize(rightBetaThreshold, interval=c(qbeta(0.99,etahat,0.5),1), z_jz=z_j, 
-                           eta=etahat,p0=p0, delta=delta)$minimum
-    inNonNullSupport <- which(z_j < nonNullMax)
-    p0new <- mean(m0)
+    p0new <- mean(m0, na.rm=TRUE)
   }
   if (!is.null(dbname)) {
-    ppthr <- max(min(z_j[which(m0 > ppr)]), qbeta(delta, etahat, 1/2))
+    ppthr <- max(min(z_j[which(m0 > ppr)]), qbeta(maxalpha, etahat, 0.5))
     p0 <- mean(m0)
     res <- dbSendQuery(con, sprintf("SELECT * FROM correlations  WHERE zij < %f",ppthr))
     selected <- dbFetch(res)
@@ -132,19 +128,22 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
     if (length(z_jall) > subsamplesize) {
       z_j <- z_jall
     }
-    inNonNullSupport <- which(z_j < nonNullMax)
-    p0f0 <- p0*exp(ldbeta(z_j,etahat,1/2))
+    inNonNullSupport <- which(z_j < bmax)
+    p0f0 <- p0*dbeta(z_j, etahat, 0.5)
     p1f1 <- rep(0,length(z_j))
-    p1f1[inNonNullSupport] <- (1-p0)*exp(ldbeta(z_j[inNonNullSupport]/nonNullMax,ahat,bhat))
+    p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/bmax,ahat,bhat)
     m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
-#    m0 <- p0f0/(p0f0+p1f1) # the posterior null probability of all pairs
-    ppthr = max(min(z_j[which(m0 > ppr)]), qbeta(delta,etahat,1/2))
     p0 <- mean(m0)
-    edges <- (sum(sin(angleMat)^2 < ppthr) - P)/2
+    ppthr <- qbeta(maxalpha, etahat, 0.5)
+    critPP <- which(m0 > ppr)
+    if (length(critPP) > 0)
+      ppthr <- max(min(z_j[critPP]), ppthr)
+    nonnull <- which(z_j < ppthr)
+    edges <- length(nonnull)
   }
   if(msg) { cat("Done.\n") }
-  list(angleMat=angleMat, z_j=z_j, m0=m0,p0=p0, ahat=ahat, bhat=bhat, etahat=etahat,
-       nonNullMax=nonNullMax, ppthr=ppthr, nodes=P, edges=edges)
+  list(angleMat=angleMat, z_j=z_j, m0=m0, p0=p0, ahat=ahat, bhat=bhat, etahat=etahat,
+       bmax=bmax, ppthr=ppthr, nodes=P, edges=edges)
 }
 
 
@@ -160,7 +159,7 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, delta=1e-3,
 #' @export
 #' @examples
 #' \dontrun{
-#'    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    image(adjMat[1:80,1:80])
 #'    # See online documentation for usage when SQLite is used.
@@ -233,15 +232,6 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
 }
 
 
-# The right-hand side of the support of the non-null beta component.
-# Find x, such that the number of values from the null distribution to the
-# right of x is at least (1-delta)*100% of the total number of values to the
-# right of x. The result will be used as the maximum of the support of the 
-# non-null distribution.
-rightBetaThreshold <- function(x, z_jz, p0, eta, delta=1e-3) {
-  ((1-delta)*mean(z_jz > x) - p0*(1-pbeta(x,eta,1/2)) )^2
-}
-
 # the Jacobian, to speed up the MLE calculation of a and b in the non-null
 # component.
 jacmle <- function(par, z_j0, m, xmax) {
@@ -267,24 +257,31 @@ MLEfun <- function(par, z_j0, m, xmax) {
   m <- m[which(z_j0 < xmax)]
   z_j0 <- z_j0[which(z_j0 < xmax)]
   z_j0 <- z_j0/xmax
+  y <- numeric(2)
+  y[1] <- y[2] <- 1
+  sm <- sum(1-m)
+  if(any(is.na(m)))
+    return(y)
+  if (sm < 1e-10)
+    return(y)
+  inc <- intersect(which(z_j0 > 1e-6),which(z_j0 < 1-1e-6))
+  m <- m[inc]
+  z_j0 <- z_j0[inc]
   a <- par[1]
   b <- par[2]
-  y <- numeric(2)
-  y[1] <- (digamma(a)-digamma(a+b) - sum((1-m)*log(z_j0))/sum(1-m))^2
-  y[2] <- (digamma(b)-digamma(a+b) - sum((1-m)*log(1-z_j0))/sum(1-m))^2
+  #  y[1] <- (digamma(a)-digamma(a+b) - sum((1-m)*log(z_j0))/sum(1-m))^2
+  #  y[2] <- (digamma(b)-digamma(a+b) - sum((1-m)*log(1-z_j0))/sum(1-m))^2
+  y[1] <- sm*(digamma(a)-digamma(a+b)) - sum((1-m)*log(z_j0))
+  y[2] <- sm*(digamma(b)-digamma(a+b)) - sum((1-m)*log(1-z_j0))
   y  
 }
 
-ldbeta <- function(x, a, b, tol=1e-12) {
-  lgamma(a+b)-lgamma(a)-lgamma(b) + (a-1)*log(pmax(x, tol))+(b-1)*log(1-pmin(x, 1-tol))
-}
 
 # The maximum likelihood estimation of the null parameter (if samples are dependent).
-etafun <- function(eta,z_j0, m, xmax) {
-  m <- m[which(z_j0 < xmax)]
-  z_j0 <- z_j0[which(z_j0 < xmax)]
-  z_j0 <- z_j0/xmax
-  (digamma(eta)-digamma(eta+0.5) - sum(m*log(z_j0))/sum(m))
+etafun <- function(eta, z_j, m0) {
+  if(sum(m0) < 1e-10)
+    return(1)
+  return((digamma(eta) - digamma(eta+0.5) - sum(m0*log(z_j))/sum(m0)))
 }
 
 
@@ -296,7 +293,7 @@ etafun <- function(eta,z_j0, m, xmax) {
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    plotFittedBetaMix(res)
 #' }
 plotFittedBetaMix <- function(betaMixObj, yLim=5) {
@@ -304,10 +301,10 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
     ccc <- seq(0.001,0.999,length=1000)
     hist(z_j,freq=F,breaks=300, border="grey",main="",ylim=c(0,yLim),
          xlim=c(0,1),xlab=expression(sin^{2} ~ (theta)))
-    lines(ccc,(p0)*exp(ldbeta(ccc,(betaMixObj$nodes-1)/2,0.5)),col=3, lwd=4)
-    lines(ccc,(p0)*exp(ldbeta(ccc,etahat,0.5)),col=5, lwd=4,lty=2)
-    lines(ccc,(1-p0)*exp(ldbeta(ccc/nonNullMax,ahat,bhat)),lwd=1,col=2)
-    lines(ccc, (1-p0)*exp(ldbeta(ccc/nonNullMax,ahat,bhat))+(p0)*exp(ldbeta(ccc,etahat,0.5)), col=4, lwd=2)
+    lines(ccc,(p0)*dbeta(ccc,(betaMixObj$nodes-1)/2,0.5),col=3, lwd=4)
+    lines(ccc,(p0)*dbeta(ccc,etahat,0.5),col=5, lwd=4,lty=2)
+    lines(ccc,(1-p0)*dbeta(ccc/bmax,ahat,bhat),lwd=1,col=2)
+    lines(ccc, (1-p0)*dbeta(ccc/bmax,ahat,bhat)+(p0)*dbeta(ccc,etahat,0.5), col=4, lwd=2)
     cccsig <- ccc[which(ccc<ppthr)]
     rect(0,0, ppthr, yLim, col='#FF7F5020', border = "orange")
   })
@@ -321,7 +318,7 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    shortSummary(res)
 #' }
 shortSummary <- function(betamixobj) {
@@ -354,7 +351,7 @@ shortSummary <- function(betamixobj) {
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    caps <- sphericalCaps(adjMat)
 #'    head(caps)
@@ -419,7 +416,7 @@ sphericalCaps <- function(A) {
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    SimComp <- graphComponents(adjMat)
 #'    head(SimComp)
@@ -485,7 +482,7 @@ graphComponents <- function(A, minCtr=5, type=1) {
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    SimComp <- graphComponents(adjMat)
 #'    (summtab <- summarizeClusters(SimComp))
@@ -522,7 +519,7 @@ summarizeClusters <- function(clustersInfo) {
 #' @examples
 #' \dontrun{
 #'    data(DrySeeds)
-#'    res <- betaMix(DrySeeds, delta = 1e-4,ppr = 0.01, ind=TRUE)
+#'    res <- betaMix(DrySeeds, maxalpha = 1e-4,ppr = 0.01, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    rownames(adjMat) = colnames(DrySeeds)
 #'    SimComp <- graphComponents(adjMat)
@@ -571,7 +568,7 @@ collapsedGraph <- function(A, clustersInfo) {
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    clusteringCoef(adjMat)
 #' }
@@ -603,7 +600,7 @@ clusteringCoef <- function(A) {
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    SimComp <- graphComponents(adjMat)
 #'    plotDegCC(res,SimComp)
@@ -636,7 +633,7 @@ plotDegCC <- function(betamixobj, clusterInfo=NULL, highlightNodes=NULL) {
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    SimComp <- graphComponents(adjMat)
 #'    plotBitmapCC(adjMat)
@@ -672,7 +669,7 @@ plotBitmapCC <- function(AdjMat, clusterInfo=NULL, orderByCluster=FALSE, showMin
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res, signed=TRUE)
 #'    SimComp <- graphComponents(adjMat)
 #'    plotCluster(adjMat, 2, SimComp)
@@ -738,7 +735,7 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol
 #' @examples
 #' \dontrun{
 #'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
 #'    adjMat <- getAdjMat(res)
 #'    AdjMat <- shortestPathDistance(adjMat, numSteps=2)
 #'    Matrix::image( (AdjMat>0)[1:200,1:200])

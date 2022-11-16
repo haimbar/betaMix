@@ -1,7 +1,7 @@
 ---
 title: "betaMix"
 author: "Haim Bar"
-date: "2021-06-08"
+date: "2022-11-15"
 output: rmarkdown::pdf_document
 bibliography: references.bib
 vignette: >
@@ -39,7 +39,7 @@ plotFittedBetaMix(res1)
 Note that we've used the ind=T option, since the 50 samples can be assumed to be independent. The fitted mixture model is shown below. The red line is the non-null component, and the green (solid) line is the null component under the independent sample assumption. If the model is fitted with ind=F, the effective sample size is estimated, and the null component is represented by the dashed line. The blue curve represents the mixture. The orange region shows the range of $z_j$'s which are determined to be significant.
 
 
-<img src="./DrySeedFitted.png" title="plot of chunk unnamed-chunk-1" alt="plot of chunk unnamed-chunk-1" width="60%" />
+<img src="./DrySeedFitted.png" alt="plot of chunk unnamed-chunk-1" width="60%" />
 
 We now show how to summarize and visualize the results. For example, the following graphComponents code is used to create clusters of metabolites. The function summarizeClusters shows the number of nodes, edges, clusters, unclustered nodes, and summary statistics on the clusters. See the package's documentation for more detail.
 
@@ -64,7 +64,7 @@ Num of unclustered nodes: 27
 
 A depiction of the third cluster is obtained by using the function plotCluster:
 
-<img src="./DrySeedCluster3.png" title="plot of chunk unnamed-chunk-2" alt="plot of chunk unnamed-chunk-2" width="50%" />
+<img src="./DrySeedCluster3.png" alt="plot of chunk unnamed-chunk-2" width="50%" />
 
 We can do the same for the SixHourImbibed dataset:
 
@@ -80,18 +80,18 @@ plotCluster(adjMat2, 3, graphComp2, labels=TRUE, nodecol = "red")
 ```
 
 
-<img src="./SixHourImbibedCluster3.png" title="plot of chunk unnamed-chunk-3" alt="plot of chunk unnamed-chunk-3" width="50%" />
+<img src="./SixHourImbibedCluster3.png" alt="plot of chunk unnamed-chunk-3" width="50%" />
 
 
 # Simulated data
 
-The following examples shows a simulated dataset (called SIM) with a hub structure, consisting of 1000 nodes (columns) and 50 hubs. In this case P=1000, which means that the number of putative edges is 499,500 so we use the subsamplesize = 30000 option. Also, because there are almost half a million tests, we set delta=1e-6 to have a proper control of the error rate. The ppr parameter is the Bayesian version of controlling the error rate by limiting the posterior probability rate.
+The following examples shows a simulated dataset (called SIM) with a hub structure, consisting of 1000 nodes (columns) and 50 hubs. In this case P=1000, which means that the number of putative edges is 499,500 so we use the subsamplesize = 30000 option. Also, because there are almost half a million tests, we set maxalpha=1e-6 to have a proper control of the error rate. The ppr parameter is the Bayesian version of controlling the error rate by limiting the posterior probability rate.
 
 We want to plot the clusters and distinguish between positive and negative correlations. We use the signed=TRUE option in the getAdjMat function. Then, in plotCluster we can specify the colors which will be used to display significant edges, by the sign of the correlations.
 
 ```
 data(SIM)
-Simres <- betaMix(SIM, subsamplesize = 30000, ind=TRUE, delta=1e-6, ppr=0.01)
+Simres <- betaMix(SIM, subsamplesize = 30000, ind=TRUE, maxalpha=1e-6, ppr=0.01)
 plotFittedBetaMix(Simres)
 SimadjMat <- getAdjMat(Simres,signed=TRUE)
 SimgraphComp <- graphComponents(SimadjMat,minCtr = 2,type=1)
@@ -101,6 +101,6 @@ plotCluster(SimadjMat, 1, SimgraphComp, labels=TRUE, nodecol = "red", edgecols =
 
 We  display the network of cluster 1, which shows that betaMix detects the correct cluster (hub) structure.
 
-<img src="./SimCluster1.png" title="plot of chunk unnamed-chunk-4" alt="plot of chunk unnamed-chunk-4" width="45%" />
+<img src="./SimCluster1.png" alt="plot of chunk unnamed-chunk-4" width="45%" />
 
 # References

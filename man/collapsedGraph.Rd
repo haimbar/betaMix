@@ -20,7 +20,7 @@ Return an adjacency matrix after collapsing clusters into their central nodes.
 \examples{
 \dontrun{
    data(DrySeeds)
-   res <- betaMix(DrySeeds, delta = 1e-4,ppr = 0.01, ind=TRUE)
+   res <- betaMix(DrySeeds, maxalpha = 1e-4,ppr = 0.01, ind=TRUE)
    adjMat <- getAdjMat(res)
    rownames(adjMat) = colnames(DrySeeds)
    SimComp <- graphComponents(adjMat)

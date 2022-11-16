@@ -25,7 +25,7 @@ Takes a PxP adjacency Matrix as input and find apherical caps with more than one
 \examples{
 \dontrun{
    data(SIM,package = "betaMix")
-   res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res)
    caps <- sphericalCaps(adjMat)
    head(caps)

@@ -96,13 +96,13 @@ knitr::include_graphics('./SixHourImbibedCluster3.png')
 
 # Simulated data
 
-The following examples shows a simulated dataset (called SIM) with a hub structure, consisting of 1000 nodes (columns) and 50 hubs. In this case P=1000, which means that the number of putative edges is 499,500 so we use the subsamplesize = 30000 option. Also, because there are almost half a million tests, we set delta=1e-6 to have a proper control of the error rate. The ppr parameter is the Bayesian version of controlling the error rate by limiting the posterior probability rate.
+The following examples shows a simulated dataset (called SIM) with a hub structure, consisting of 1000 nodes (columns) and 50 hubs. In this case P=1000, which means that the number of putative edges is 499,500 so we use the subsamplesize = 30000 option. Also, because there are almost half a million tests, we set maxalpha=1e-6 to have a proper control of the error rate. The ppr parameter is the Bayesian version of controlling the error rate by limiting the posterior probability rate.
 
 We want to plot the clusters and distinguish between positive and negative correlations. We use the signed=TRUE option in the getAdjMat function. Then, in plotCluster we can specify the colors which will be used to display significant edges, by the sign of the correlations.
 
 ```
 data(SIM)
-Simres <- betaMix(SIM, subsamplesize = 30000, ind=TRUE, delta=1e-6, ppr=0.01)
+Simres <- betaMix(SIM, subsamplesize = 30000, ind=TRUE, maxalpha=1e-6, ppr=0.01)
 plotFittedBetaMix(Simres)
 SimadjMat <- getAdjMat(Simres,signed=TRUE)
 SimgraphComp <- graphComponents(SimadjMat,minCtr = 2,type=1)

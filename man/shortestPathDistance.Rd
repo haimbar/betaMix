@@ -20,7 +20,7 @@ return the adjacency matrix of expMat connecting neighbors up to numSteps away.
 \examples{
 \dontrun{
    data(SIM,package = "betaMix")
-   res <- betaMix(betaMix::SIM, delta = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
+   res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
    adjMat <- getAdjMat(res)
    AdjMat <- shortestPathDistance(adjMat, numSteps=2)
    Matrix::image( (AdjMat>0)[1:200,1:200])
