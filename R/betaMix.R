@@ -10,7 +10,7 @@ NULL
 #' @param dbname The sqlite database, if one is used to store the pairwise correlation data instead of using the cor function and storing the cor(M) matrix in memory (for situations in which P is very large).
 #' @param tol The convergence threshold for the EM algorithm (default= the maximum of the user's input and 1/(P(P-1)/2)).
 #' @param calcAcc The calculation accuracy threshold (to avoid values greater than 1 when calling asin.) Default=1e-9.
-#' @param maxalpha The probability of Type I error (default=1e-4). For a large P, 0.01/(P*(P-1)/2) is used.
+#' @param maxalpha The probability of Type I error (default=1e-4). For a large P, use a much smaller value.
 #' @param ppr The null posterior probability threshold (default=0.01).
 #' @param mxcnt The maximum number of EM iterations (default=200).
 #' @param ahat The initial value for the first parameter of the nonnull beta distribution (default=8).
@@ -82,7 +82,7 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, maxalpha=1e-4,
       z_j <- sort(z_j[sample(length(z_j), subsamplesize)])
     }
   }
-  maxalpha <- min(maxalpha, 0.01/(P*(P-1)/2))
+  #maxalpha <- min(maxalpha, 0.01/(P*(P-1)/2))
   bmax <- 1
   tol <- max(tol, 1/length(z_j))
   p0 <- min(length(which(z_j > qbeta(0.1, etahat, 0.5)))/(0.9*length(z_j)), 1)
@@ -98,21 +98,22 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, maxalpha=1e-4,
     p0 <- p0new
     if(!ind) {
       etahat <- try(uniroot(etafun,c(1,(N-1)/2), z_j=z_j, m0=m0,
-                            lower=1, upper=(N-1)/2)$root, silent=T)
+                            lower=1, upper=(N-1)/2)$root, silent=TRUE)
       if (class(etahat) == "try-error")
         message("betaMix error when estimating eta:", etahat,"\n")
     }
-    bmax <- min(z_j[which(z_j > qbeta(100/length(z_j), etahat, 0.5))])
+    bmax <- ifelse(maxalpha <= 1-p0, qbeta(1-maxalpha/(1-p0), ahat, bhat), 1)
     inNonNullSupport <- which(z_j < bmax)
-    ests <- try(nleqslv(c(ahat,bhat), MLEfun,# jac=jacmle,
-                        z_j0=z_j, m=m0, xmax=bmax)$x, silent=T)
+    ests <- try(nleqslv(c(ahat,bhat), MLEfun, jac=jacmle,
+                        z_j0=z_j, m=m0, xmax=bmax)$x, silent=TRUE)
     if (class(ests) == "try-error")
       message("betaMix error when estimating a and b:", ests,"\n")
     ahat <- ests[1]
     bhat <- ests[2]
     p0f0 <- p0*dbeta(z_j, etahat, 0.5)
     p1f1 <- rep(0, length(z_j))
-    p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/bmax, ahat, bhat)
+    if (length(inNonNullSupport) > 0)
+      p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/bmax, ahat, bhat)
     m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
     p0new <- mean(m0, na.rm=TRUE)
   }
@@ -240,14 +241,8 @@ jacmle <- function(par, z_j0, m, xmax) {
   z_j0 <- z_j0/xmax
   a <- par[1]
   b <- par[2]
-  matrix(c(2*(digamma(a)-digamma(a+b) - 
-                sum((1-m)*log(z_j0))/sum(1-m))*(trigamma(a)-trigamma(a+b)),
-           2*(digamma(a)-digamma(a+b) - 
-                sum((1-m)*log(z_j0))/sum(1-m))*(-trigamma(a+b)),
-           2*(digamma(b)-digamma(a+b) - sum((1-m)*log(1-z_j0))/sum(1-m))*
-             (-trigamma(a+b)),
-           2*(digamma(b)-digamma(a+b) - sum((1-m)*log(1-z_j0))/sum(1-m))*
-             (trigamma(a)-trigamma(a+b))),2,2)
+  sum(m-1)*matrix(c(trigamma(a+b)-trigamma(a), trigamma(a+b),
+                    trigamma(a+b), trigamma(a+b)-trigamma(b)),2,2)
 }
 
 
@@ -279,9 +274,10 @@ MLEfun <- function(par, z_j0, m, xmax) {
 
 # The maximum likelihood estimation of the null parameter (if samples are dependent).
 etafun <- function(eta, z_j, m0) {
-  if(sum(m0) < 1e-10)
-    return(1)
-  return((digamma(eta) - digamma(eta+0.5) - sum(m0*log(z_j))/sum(m0)))
+#  if(sum(m0) < 1e-10)
+#    return(1)
+  return(-(digamma(eta) - digamma(eta+0.5))*sum(m0) + sum(m0*log(z_j)))
+#  return((digamma(eta) - digamma(eta+0.5) - sum(m0*log(z_j))/sum(m0)))
 }
 
 
@@ -299,7 +295,7 @@ etafun <- function(eta, z_j, m0) {
 plotFittedBetaMix <- function(betaMixObj, yLim=5) {
   with(betaMixObj, {
     ccc <- seq(0.001,0.999,length=1000)
-    hist(z_j,freq=F,breaks=300, border="grey",main="",ylim=c(0,yLim),
+    hist(z_j,freq=FALSE,breaks=300, border="grey",main="",ylim=c(0,yLim),
          xlim=c(0,1),xlab=expression(sin^{2} ~ (theta)))
     lines(ccc,(p0)*dbeta(ccc,(betaMixObj$nodes-1)/2,0.5),col=3, lwd=4)
     lines(ccc,(p0)*dbeta(ccc,etahat,0.5),col=5, lwd=4,lty=2)
@@ -610,7 +606,7 @@ plotDegCC <- function(betamixobj, clusterInfo=NULL, highlightNodes=NULL) {
     clusterInfo <-  graphComponents(betamixobj$AdjMat)
   cc0 <- clusterInfo$cc
   deg0 <- clusterInfo$degree
-  plot(deg0, deg0*cc0,axes=F,xlim=c(0,max(deg0)),
+  plot(deg0, deg0*cc0,axes=FALSE,xlim=c(0,max(deg0)),
        ylim=c(0,1.1*max(deg0*cc0)),main="",
        xlab=bquote("degree"),ylab=bquote("CC*degree"),
        col="thistle",pch=24,cex=0.5); axis(1); axis(2)
@@ -624,7 +620,7 @@ plotDegCC <- function(betamixobj, clusterInfo=NULL, highlightNodes=NULL) {
 #'
 #' Plot a bitmap in which a black dot corresponds to a pair of highly correlated genes (an edge in the graph).
 #' The default is to show the nodes according to their order in the input.
-#' By setting orderByDegree=T as below, it is possible to change the order and cluster them, and show them in increasing degree order (from left to right.)
+#' By setting orderByDegree=TRUE as below, it is possible to change the order and cluster them, and show them in increasing degree order (from left to right.)
 #' @param AdjMat An adjacency Matrix (0/1).
 #' @param clusterInfo obtained from graphComponents. If not provided by the user, it will be computed on the fly.
 #' @param orderByCluster If false, show the bitmap is the original node order. If TRUE, show nodes by clusters, and sort by distance from the center of the cluster.
@@ -696,7 +692,7 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol
     opacity <- 0.25+tmpclusterInfo$intEdges/tmpclusterInfo$degree
     opacity <- opacity/max(opacity)
     nodecol <- rgb(t(col2rgb(nodecol)/255),alpha=opacity)[ids]
-    plot(rads*cos(thetas), rads*sin(thetas),cex=sizes*3, pch=19,axes=F,
+    plot(rads*cos(thetas), rads*sin(thetas),cex=sizes*3, pch=19,axes=FALSE,
          xlab="",ylab="",col=nodecol, main=figtitle,
          ylim=c(min(rads*sin(thetas)), 1.1*max(rads*sin(thetas))))
     for (i in 1:ncol(tmpA)) {

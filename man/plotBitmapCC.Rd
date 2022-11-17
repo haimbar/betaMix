@@ -23,7 +23,7 @@ plotBitmapCC(
 \description{
 Plot a bitmap in which a black dot corresponds to a pair of highly correlated genes (an edge in the graph).
 The default is to show the nodes according to their order in the input.
-By setting orderByDegree=T as below, it is possible to change the order and cluster them, and show them in increasing degree order (from left to right.)
+By setting orderByDegree=TRUE as below, it is possible to change the order and cluster them, and show them in increasing degree order (from left to right.)
 }
 \examples{
 \dontrun{

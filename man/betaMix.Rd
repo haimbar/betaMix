@@ -29,7 +29,7 @@ betaMix(
 
 \item{calcAcc}{The calculation accuracy threshold (to avoid values greater than 1 when calling asin.) Default=1e-9.}
 
-\item{maxalpha}{The probability of Type I error (default=1e-4). For a large P, 0.01/(P*(P-1)/2) is used.}
+\item{maxalpha}{The probability of Type I error (default=1e-4). For a large P, use a much smaller value.}
 
 \item{ppr}{The null posterior probability threshold (default=0.01).}
 
