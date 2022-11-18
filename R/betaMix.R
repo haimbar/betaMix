@@ -11,7 +11,7 @@ NULL
 #' @param tol The convergence threshold for the EM algorithm (default= the maximum of the user's input and 1/(P(P-1)/2)).
 #' @param calcAcc The calculation accuracy threshold (to avoid values greater than 1 when calling asin.) Default=1e-9.
 #' @param maxalpha The probability of Type I error (default=1e-4). For a large P, use a much smaller value.
-#' @param ppr The null posterior probability threshold (default=0.01).
+#' @param ppr The null posterior probability threshold (default=0.2).
 #' @param mxcnt The maximum number of EM iterations (default=200).
 #' @param ahat The initial value for the first parameter of the nonnull beta distribution (default=8).
 #' @param bhat The initial value for the second parameter of the nonnull beta distribution (default=2).
@@ -42,7 +42,7 @@ NULL
 #' }
 
 betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, maxalpha=1e-4,
-                    ppr=0.01, mxcnt=200, ahat=8, bhat=2,
+                    ppr=0.2, mxcnt=200, ahat=8, bhat=2,
                     subsamplesize=50000, seed=912469, ind=TRUE, msg=TRUE) {
   if(msg) { cat("Generating the z_ij statistics...\n") }
   if (!is.null(dbname)) {
@@ -136,10 +136,10 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, maxalpha=1e-4,
     m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
     p0 <- mean(m0)
     ppthr <- qbeta(maxalpha, etahat, 0.5)
-    critPP <- which(m0 > ppr)
+    critPP <- which(m0 < ppr)
     if (length(critPP) > 0)
-      ppthr <- max(min(z_j[critPP]), ppthr)
-    nonnull <- which(z_j < ppthr)
+      ppthr <- max(z_j[critPP])
+    nonnull <- which(z_j <= ppthr)
     edges <- length(nonnull)
   }
   if(msg) { cat("Done.\n") }
@@ -274,10 +274,7 @@ MLEfun <- function(par, z_j0, m, xmax) {
 
 # The maximum likelihood estimation of the null parameter (if samples are dependent).
 etafun <- function(eta, z_j, m0) {
-#  if(sum(m0) < 1e-10)
-#    return(1)
   return(-(digamma(eta) - digamma(eta+0.5))*sum(m0) + sum(m0*log(z_j)))
-#  return((digamma(eta) - digamma(eta+0.5) - sum(m0*log(z_j))/sum(m0)))
 }
 
 
@@ -297,10 +294,10 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
     ccc <- seq(0.001,0.999,length=1000)
     hist(z_j,freq=FALSE,breaks=300, border="grey",main="",ylim=c(0,yLim),
          xlim=c(0,1),xlab=expression(sin^{2} ~ (theta)))
-    lines(ccc,(p0)*dbeta(ccc,(betaMixObj$nodes-1)/2,0.5),col=3, lwd=4)
-    lines(ccc,(p0)*dbeta(ccc,etahat,0.5),col=5, lwd=4,lty=2)
-    lines(ccc,(1-p0)*dbeta(ccc/bmax,ahat,bhat),lwd=1,col=2)
-    lines(ccc, (1-p0)*dbeta(ccc/bmax,ahat,bhat)+(p0)*dbeta(ccc,etahat,0.5), col=4, lwd=2)
+    lines(ccc, p0*dbeta(ccc,(nodes-1)/2,0.5), col=3, lwd=4)
+    lines(ccc, p0*dbeta(ccc,etahat,0.5),col=5, lwd=4, lty=2)
+    lines(ccc, (1-p0)*dbeta(ccc/bmax,ahat,bhat), lwd=1, col=2)
+    lines(ccc, (1-p0)*dbeta(ccc/bmax,ahat,bhat)+p0*dbeta(ccc,etahat,0.5), col=4, lwd=2)
     cccsig <- ccc[which(ccc<ppthr)]
     rect(0,0, ppthr, yLim, col='#FF7F5020', border = "orange")
   })
