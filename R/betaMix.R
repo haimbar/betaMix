@@ -11,7 +11,7 @@ NULL
 #' @param tol The convergence threshold for the EM algorithm (default= the maximum of the user's input and 1/(P(P-1)/2)).
 #' @param calcAcc The calculation accuracy threshold (to avoid values greater than 1 when calling asin.) Default=1e-9.
 #' @param maxalpha The probability of Type I error (default=1e-4). For a large P, use a much smaller value.
-#' @param ppr The null posterior probability threshold (default=0.2).
+#' @param ppr The null posterior probability threshold (default=0.1).
 #' @param mxcnt The maximum number of EM iterations (default=200).
 #' @param ahat The initial value for the first parameter of the nonnull beta distribution (default=8).
 #' @param bhat The initial value for the second parameter of the nonnull beta distribution (default=2).
@@ -41,8 +41,8 @@ NULL
 #'    plotFittedBetaMix(res)
 #' }
 
-betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, maxalpha=1e-4,
-                    ppr=0.2, mxcnt=200, ahat=8, bhat=2,
+betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
+                    ppr=0.1, mxcnt=200, ahat=8, bhat=2,
                     subsamplesize=50000, seed=912469, ind=TRUE, msg=TRUE) {
   if(msg) { cat("Generating the z_ij statistics...\n") }
   if (!is.null(dbname)) {
@@ -82,8 +82,8 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, maxalpha=1e-4,
       z_j <- sort(z_j[sample(length(z_j), subsamplesize)])
     }
   }
-  #maxalpha <- min(maxalpha, 0.01/(P*(P-1)/2))
-  bmax <- 1
+  bmax <- 0.9999
+  bmx <- seq(max(0.001,min(z_j)), 1-0.001, length=1001)
   tol <- max(tol, 1/length(z_j))
   p0 <- min(length(which(z_j > qbeta(0.1, etahat, 0.5)))/(0.9*length(z_j)), 1)
   if(msg) { cat("Fitting the model...\n") }
@@ -97,19 +97,26 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, maxalpha=1e-4,
   while (abs(p0-p0new) > tol & (cnt <- cnt+1) < mxcnt) {
     p0 <- p0new
     if(!ind) {
-      etahat <- try(uniroot(etafun,c(1,(N-1)/2), z_j=z_j, m0=m0,
+      etahat <- try(uniroot(etafun, c(1,(N-1)/2), z_j=z_j, m0=m0,
                             lower=1, upper=(N-1)/2)$root, silent=TRUE)
       if (class(etahat) == "try-error")
         message("betaMix error when estimating eta:", etahat,"\n")
     }
-    bmax <- ifelse(maxalpha <= 1-p0, qbeta(1-maxalpha/(1-p0), ahat, bhat), 1)
-    inNonNullSupport <- which(z_j < bmax)
-    ests <- try(nleqslv(c(ahat,bhat), MLEfun, jac=jacmle,
+    ests <- try(nleqslv(c(ahat, bhat), MLEfun, jac=jacmle,
                         z_j0=z_j, m=m0, xmax=bmax)$x, silent=TRUE)
     if (class(ests) == "try-error")
       message("betaMix error when estimating a and b:", ests,"\n")
-    ahat <- ests[1]
-    bhat <- ests[2]
+   # ests <- nloptr(c(ahat, bhat), MLEfun, lb=c(0.01, 0.01),
+   #                opts=list("algorithm"="NLOPT_LN_NELDERMEAD"),
+   #                ub=c(1000,1000), z_j0=z_j, m=m0, xmax=bmax)$solution
+    ahat <- min(max(ests[1], 0.1), 200)
+    bhat <- min(max(ests[2], 0.1), 200)
+    t1 <- (1-p0)*(1-pbeta(bmx, ahat, bhat)) # percent of nonnull in the tail
+    t0 <- p0*(1-pbeta(bmx, etahat, 0.5))    # percent of null in the tail
+    if (any(t1 > 0.01*t0)) {
+      bmax <- max(bmx[which(t1 > 0.01*t0)])
+    }
+    inNonNullSupport <- which(z_j < bmax)
     p0f0 <- p0*dbeta(z_j, etahat, 0.5)
     p1f1 <- rep(0, length(z_j))
     if (length(inNonNullSupport) > 0)
@@ -118,7 +125,10 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, maxalpha=1e-4,
     p0new <- mean(m0, na.rm=TRUE)
   }
   if (!is.null(dbname)) {
-    ppthr <- max(min(z_j[which(m0 > ppr)]), qbeta(maxalpha, etahat, 0.5))
+    ppthr <- qbeta(maxalpha, etahat, 0.5)
+    critPP <- which(m0 < ppr)
+    if (length(critPP) > 0)
+      ppthr <- max(z_j[critPP])
     p0 <- mean(m0)
     res <- dbSendQuery(con, sprintf("SELECT * FROM correlations  WHERE zij < %f",ppthr))
     selected <- dbFetch(res)
@@ -143,8 +153,9 @@ betaMix <- function(M, dbname=NULL, tol=1e-6, calcAcc=1e-9, maxalpha=1e-4,
     edges <- length(nonnull)
   }
   if(msg) { cat("Done.\n") }
-  list(angleMat=angleMat, z_j=z_j, m0=m0, p0=p0, ahat=ahat, bhat=bhat, etahat=etahat,
-       bmax=bmax, ppthr=ppthr, nodes=P, edges=edges)
+  list(angleMat=angleMat, z_j=z_j, m0=m0, p0=p0, ahat=ahat, bhat=bhat, 
+       etahat=etahat,
+       bmax=bmax, ppthr=ppthr, nodes=P, edges=edges, cnt=cnt)
 }
 
 
@@ -316,15 +327,16 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
 #' }
 shortSummary <- function(betamixobj) {
   with(betamixobj,{
-    cat("ahat=",ahat, "\nbhat=",bhat, "\netahat=",etahat,
-        "\nPost. Pr. threshold=", ppthr,"\n")
+    cat(paste0("Nonnoll support = [0,",format(bmax, digits=2),"]\nahat = ",
+               format(ahat, digits=2), ", bhat = ",format(bhat, digits=2),
+               "\netahat = ",format(etahat, digits=2),
+        "\nPost. Pr. threshold = ", format(ppthr, digits=2)),"\n")
     cat("No. nodes =", prettyNum(nodes,big.mark = ","),"\n")
     cat("Max no. edges =", prettyNum(choose(nodes, 2),big.mark = ","),"\n")
     cat("No. edges detected =", prettyNum(edges,big.mark = ","),"\n")
     cat("p0 =",format(p0,digits=3),"\n")
   })
 }
-
 
 
 #' Find spherical caps with more than one node.

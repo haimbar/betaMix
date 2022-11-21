@@ -7,10 +7,10 @@
 betaMix(
   M,
   dbname = NULL,
-  tol = 1e-06,
+  tol = 1e-04,
   calcAcc = 1e-09,
   maxalpha = 1e-04,
-  ppr = 0.2,
+  ppr = 0.1,
   mxcnt = 200,
   ahat = 8,
   bhat = 2,
@@ -31,7 +31,7 @@ betaMix(
 
 \item{maxalpha}{The probability of Type I error (default=1e-4). For a large P, use a much smaller value.}
 
-\item{ppr}{The null posterior probability threshold (default=0.2).}
+\item{ppr}{The null posterior probability threshold (default=0.1).}
 
 \item{mxcnt}{The maximum number of EM iterations (default=200).}
 
