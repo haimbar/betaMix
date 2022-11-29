@@ -3,6 +3,7 @@
 #' @export calcCorr
 NULL
 
+
 #' Fit a two-component beta mixture model to the matrix of all pairwise correlations.
 #'
 #' From the pairwise correlations, the function calculates the statistics z_j=sin^2(arccos(cor(y_i,y_j))) and fits the two-component model using the EM algorithm.
@@ -15,6 +16,7 @@ NULL
 #' @param mxcnt The maximum number of EM iterations (default=200).
 #' @param ahat The initial value for the first parameter of the nonnull beta distribution (default=8).
 #' @param bhat The initial value for the second parameter of the nonnull beta distribution (default=2).
+#' @param fct The minimum ratio between the percent of nonnull and null groups in the tail (used to determine the support of the nonnull distribution)
 #' @param subsamplesize If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=50000).
 #' @param seed The random seed to use if selecting a subset with the subsamplesize parameter (default=912469).
 #' @param ind Whether the N samples should be assumed to be independent (default=TRUE).
@@ -42,7 +44,7 @@ NULL
 #' }
 
 betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
-                    ppr=0.1, mxcnt=200, ahat=8, bhat=2,
+                    ppr=0.05, mxcnt=200, ahat=8, bhat=3, fct=0.1,
                     subsamplesize=50000, seed=912469, ind=TRUE, msg=TRUE) {
   if(msg) { cat("Generating the z_ij statistics...\n") }
   if (!is.null(dbname)) {
@@ -82,8 +84,8 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
       z_j <- sort(z_j[sample(length(z_j), subsamplesize)])
     }
   }
-  bmax <- 0.9999
-  bmx <- seq(max(0.001,min(z_j)), 1-0.001, length=1001)
+  bmax <- 0.999
+  bmx <- seq(max(0.001, min(z_j)), 1-0.001, length=1001)
   tol <- max(tol, 1/length(z_j))
   p0 <- min(length(which(z_j > qbeta(0.1, etahat, 0.5)))/(0.9*length(z_j)), 1)
   if(msg) { cat("Fitting the model...\n") }
@@ -92,10 +94,15 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
   p1f1 <- rep(0,length(z_j))
   p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/bmax, ahat, bhat)
   m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
-  p0new <- mean(m0)
+  p0new <- p0 - 10*tol
   cnt <- 0
   while (abs(p0-p0new) > tol & (cnt <- cnt+1) < mxcnt) {
     p0 <- p0new
+    t1 <- (1-p0)*(1-pbeta(bmx, ahat, bhat)) # percent of nonnull in the tail
+    t0 <- p0*(1-pbeta(bmx, etahat, 0.5))    # percent of null in the tail
+    if (any(t1 > fct*t0)) {
+      bmax <- max(bmx[which(t1 > fct*t0)])
+    }
     if(!ind) {
       etahat <- try(uniroot(etafun, c(1,(N-1)/2), z_j=z_j, m0=m0,
                             lower=1, upper=(N-1)/2)$root, silent=TRUE)
@@ -104,17 +111,11 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
     }
     ests <- try(nleqslv(c(ahat, bhat), MLEfun, jac=jacmle,
                         z_j0=z_j, m=m0, xmax=bmax)$x, silent=TRUE)
-    if (class(ests) == "try-error")
+    if (class(ests) == "try-error") {
       message("betaMix error when estimating a and b:", ests,"\n")
-   # ests <- nloptr(c(ahat, bhat), MLEfun, lb=c(0.01, 0.01),
-   #                opts=list("algorithm"="NLOPT_LN_NELDERMEAD"),
-   #                ub=c(1000,1000), z_j0=z_j, m=m0, xmax=bmax)$solution
-    ahat <- min(max(ests[1], 0.1), 200)
-    bhat <- min(max(ests[2], 0.1), 200)
-    t1 <- (1-p0)*(1-pbeta(bmx, ahat, bhat)) # percent of nonnull in the tail
-    t0 <- p0*(1-pbeta(bmx, etahat, 0.5))    # percent of null in the tail
-    if (any(t1 > 0.01*t0)) {
-      bmax <- max(bmx[which(t1 > 0.01*t0)])
+    } else {
+      ahat <- min(max(ests[1], 0.5), 1000)
+      bhat <- min(max(ests[2], 0.5), 1000)
     }
     inNonNullSupport <- which(z_j < bmax)
     p0f0 <- p0*dbeta(z_j, etahat, 0.5)
@@ -305,10 +306,10 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
     ccc <- seq(0.001,0.999,length=1000)
     hist(z_j,freq=FALSE,breaks=300, border="grey",main="",ylim=c(0,yLim),
          xlim=c(0,1),xlab=expression(sin^{2} ~ (theta)))
-    lines(ccc, p0*dbeta(ccc,(nodes-1)/2,0.5), col=3, lwd=4)
-    lines(ccc, p0*dbeta(ccc,etahat,0.5),col=5, lwd=4, lty=2)
-    lines(ccc, (1-p0)*dbeta(ccc/bmax,ahat,bhat), lwd=1, col=2)
-    lines(ccc, (1-p0)*dbeta(ccc/bmax,ahat,bhat)+p0*dbeta(ccc,etahat,0.5), col=4, lwd=2)
+    lines(ccc, p0*dbeta(ccc, etahat, 0.5),col=5, lwd=4, lty=2)
+    lines(ccc, (1-p0)*dbeta(ccc/bmax, ahat, bhat), lwd=1, col=2)
+    lines(ccc, (1-p0)*dbeta(ccc/bmax, ahat, bhat)+
+            p0*dbeta(ccc,etahat,0.5), col=4, lwd=2)
     cccsig <- ccc[which(ccc<ppthr)]
     rect(0,0, ppthr, yLim, col='#FF7F5020', border = "orange")
   })
@@ -330,7 +331,7 @@ shortSummary <- function(betamixobj) {
     cat(paste0("Nonnoll support = [0,",format(bmax, digits=2),"]\nahat = ",
                format(ahat, digits=2), ", bhat = ",format(bhat, digits=2),
                "\netahat = ",format(etahat, digits=2),
-        "\nPost. Pr. threshold = ", format(ppthr, digits=2)),"\n")
+               "\nPost. Pr. threshold = ", format(ppthr, digits=2)),"\n")
     cat("No. nodes =", prettyNum(nodes,big.mark = ","),"\n")
     cat("Max no. edges =", prettyNum(choose(nodes, 2),big.mark = ","),"\n")
     cat("No. edges detected =", prettyNum(edges,big.mark = ","),"\n")

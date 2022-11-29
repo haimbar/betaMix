@@ -10,10 +10,11 @@ betaMix(
   tol = 1e-04,
   calcAcc = 1e-09,
   maxalpha = 1e-04,
-  ppr = 0.1,
+  ppr = 0.05,
   mxcnt = 200,
   ahat = 8,
-  bhat = 2,
+  bhat = 3,
+  fct = 0.1,
   subsamplesize = 50000,
   seed = 912469,
   ind = TRUE,
@@ -38,6 +39,8 @@ betaMix(
 \item{ahat}{The initial value for the first parameter of the nonnull beta distribution (default=8).}
 
 \item{bhat}{The initial value for the second parameter of the nonnull beta distribution (default=2).}
+
+\item{fct}{The minimum ratio between the percent of nonnull and null groups in the tail (used to determine the support of the nonnull distribution)}
 
 \item{subsamplesize}{If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=50000).}
 
