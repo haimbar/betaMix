@@ -9,14 +9,14 @@ NULL
 #' From the pairwise correlations, the function calculates the statistics z_j=sin^2(arccos(cor(y_i,y_j))) and fits the two-component model using the EM algorithm.
 #' @param M A matrix with N rows (samples) and P columns (variables).
 #' @param dbname The sqlite database, if one is used to store the pairwise correlation data instead of using the cor function and storing the cor(M) matrix in memory (for situations in which P is very large).
-#' @param tol The convergence threshold for the EM algorithm (default= the maximum of the user's input and 1/(P(P-1)/2)).
+#' @param tol The convergence threshold for the EM algorithm (default=1e-4, but taken to be the maximum of the user's input and 1/(P(P-1)/2)).
 #' @param calcAcc The calculation accuracy threshold (to avoid values greater than 1 when calling asin.) Default=1e-9.
 #' @param maxalpha The probability of Type I error (default=1e-4). For a large P, use a much smaller value.
-#' @param ppr The null posterior probability threshold (default=0.1).
+#' @param ppr The null posterior probability threshold (default=0.05).
 #' @param mxcnt The maximum number of EM iterations (default=200).
 #' @param ahat The initial value for the first parameter of the nonnull beta distribution (default=8).
-#' @param bhat The initial value for the second parameter of the nonnull beta distribution (default=2).
-#' @param fct The minimum ratio between the percent of nonnull and null groups in the tail (used to determine the support of the nonnull distribution)
+#' @param bhat The initial value for the second parameter of the nonnull beta distribution (default=3).
+#' @param bmax The RHS of the support of the non-null component (default=0.999)
 #' @param subsamplesize If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=50000).
 #' @param seed The random seed to use if selecting a subset with the subsamplesize parameter (default=912469).
 #' @param ind Whether the N samples should be assumed to be independent (default=TRUE).
@@ -29,9 +29,13 @@ NULL
 #' \item{p_0} {The estimated probability of the null component.}
 #' \item{ahat} {The estimated first parameter of the nonnull beta component.}
 #' \item{bhat} {The estimated second parameter of the nonnull beta component.}
+#' \item{N} {The sample size.}
 #' \item{etahat} {If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
-#' \item {bmax} {The estimated right-hand side of the support of the non-null component.}
-#' \item {ppthr} {The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
+#' \item{bmax} {The user-defined right-hand side of the support of the non-null component.}
+#' \item{ppthr} {The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
+#' \item{P} {The number of nodes.}
+#' \item{edges} {The number of edges found.}
+#' \item{cnt} {The number of EM iterations.}
 #' }
 #' @export
 #' @import DBI stats nleqslv
@@ -44,7 +48,7 @@ NULL
 #' }
 
 betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
-                    ppr=0.05, mxcnt=200, ahat=8, bhat=3, fct=0.1,
+                    ppr=0.05, mxcnt=200, ahat=8, bhat=3, bmax=0.999,
                     subsamplesize=50000, seed=912469, ind=TRUE, msg=TRUE) {
   if(msg) { cat("Generating the z_ij statistics...\n") }
   if (!is.null(dbname)) {
@@ -84,8 +88,6 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
       z_j <- sort(z_j[sample(length(z_j), subsamplesize)])
     }
   }
-  bmax <- 0.999
-  bmx <- seq(max(0.001, min(z_j)), 1-0.001, length=1001)
   tol <- max(tol, 1/length(z_j))
   p0 <- min(length(which(z_j > qbeta(0.1, etahat, 0.5)))/(0.9*length(z_j)), 1)
   if(msg) { cat("Fitting the model...\n") }
@@ -98,11 +100,6 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
   cnt <- 0
   while (abs(p0-p0new) > tol & (cnt <- cnt+1) < mxcnt) {
     p0 <- p0new
-    t1 <- (1-p0)*(1-pbeta(bmx, ahat, bhat)) # percent of nonnull in the tail
-    t0 <- p0*(1-pbeta(bmx, etahat, 0.5))    # percent of null in the tail
-    if (any(t1 > fct*t0)) {
-      bmax <- max(bmx[which(t1 > fct*t0)])
-    }
     if(!ind) {
       etahat <- try(uniroot(etafun, c(1,(N-1)/2), z_j=z_j, m0=m0,
                             lower=1, upper=(N-1)/2)$root, silent=TRUE)
@@ -154,9 +151,8 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
     edges <- length(nonnull)
   }
   if(msg) { cat("Done.\n") }
-  list(angleMat=angleMat, z_j=z_j, m0=m0, p0=p0, ahat=ahat, bhat=bhat, 
-       etahat=etahat,
-       bmax=bmax, ppthr=ppthr, nodes=P, edges=edges, cnt=cnt)
+  list(angleMat=angleMat, z_j=z_j, m0=m0, p0=p0, N=N, ahat=ahat, bhat=bhat,
+       etahat=etahat, bmax=bmax, ppthr=ppthr, nodes=P, edges=edges, cnt=cnt)
 }
 
 
@@ -276,8 +272,6 @@ MLEfun <- function(par, z_j0, m, xmax) {
   z_j0 <- z_j0[inc]
   a <- par[1]
   b <- par[2]
-  #  y[1] <- (digamma(a)-digamma(a+b) - sum((1-m)*log(z_j0))/sum(1-m))^2
-  #  y[2] <- (digamma(b)-digamma(a+b) - sum((1-m)*log(1-z_j0))/sum(1-m))^2
   y[1] <- sm*(digamma(a)-digamma(a+b)) - sum((1-m)*log(z_j0))
   y[2] <- sm*(digamma(b)-digamma(a+b)) - sum((1-m)*log(1-z_j0))
   y  
@@ -328,10 +322,11 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
 #' }
 shortSummary <- function(betamixobj) {
   with(betamixobj,{
-    cat(paste0("Nonnoll support = [0,",format(bmax, digits=2),"]\nahat = ",
+    cat(paste0("Nonnoll support = [0,",format(bmax, digits=3),"]\nahat = ",
                format(ahat, digits=2), ", bhat = ",format(bhat, digits=2),
                "\netahat = ",format(etahat, digits=2),
                "\nPost. Pr. threshold = ", format(ppthr, digits=2)),"\n")
+    cat("Sample size =", N,"\n")
     cat("No. nodes =", prettyNum(nodes,big.mark = ","),"\n")
     cat("Max no. edges =", prettyNum(choose(nodes, 2),big.mark = ","),"\n")
     cat("No. edges detected =", prettyNum(edges,big.mark = ","),"\n")

@@ -1,0 +1,22 @@
+* installing *source* package ‘betaMix’ ...
+** using staged installation
+** libs
+make: Nothing to be done for 'all'.
+make: 'symbols.rds' is up to date.
+installing to /home/haim/Dropbox/Packages/betaMix/..Rcheck/00LOCK-betaMix/00new/betaMix/libs
+** R
+** data
+*** moving datasets to lazyload DB
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+Error: package or namespace load failed for ‘betaMix’ in dyn.load(file, DLLpath = DLLpath, ...):
+ unable to load shared object '/home/haim/Dropbox/Packages/betaMix/..Rcheck/00LOCK-betaMix/00new/betaMix/libs/betaMix.so':
+  /home/haim/Dropbox/Packages/betaMix/..Rcheck/00LOCK-betaMix/00new/betaMix/libs/betaMix.so: invalid ELF header
+Error: loading failed
+Execution halted
+ERROR: loading failed
+* removing ‘/home/haim/Dropbox/Packages/betaMix/..Rcheck/betaMix’

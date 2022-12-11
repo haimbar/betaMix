@@ -14,7 +14,7 @@ betaMix(
   mxcnt = 200,
   ahat = 8,
   bhat = 3,
-  fct = 0.1,
+  bmax = 0.999,
   subsamplesize = 50000,
   seed = 912469,
   ind = TRUE,
@@ -26,21 +26,21 @@ betaMix(
 
 \item{dbname}{The sqlite database, if one is used to store the pairwise correlation data instead of using the cor function and storing the cor(M) matrix in memory (for situations in which P is very large).}
 
-\item{tol}{The convergence threshold for the EM algorithm (default= the maximum of the user's input and 1/(P(P-1)/2)).}
+\item{tol}{The convergence threshold for the EM algorithm (default=1e-4, but taken to be the maximum of the user's input and 1/(P(P-1)/2)).}
 
 \item{calcAcc}{The calculation accuracy threshold (to avoid values greater than 1 when calling asin.) Default=1e-9.}
 
 \item{maxalpha}{The probability of Type I error (default=1e-4). For a large P, use a much smaller value.}
 
-\item{ppr}{The null posterior probability threshold (default=0.1).}
+\item{ppr}{The null posterior probability threshold (default=0.05).}
 
 \item{mxcnt}{The maximum number of EM iterations (default=200).}
 
 \item{ahat}{The initial value for the first parameter of the nonnull beta distribution (default=8).}
 
-\item{bhat}{The initial value for the second parameter of the nonnull beta distribution (default=2).}
+\item{bhat}{The initial value for the second parameter of the nonnull beta distribution (default=3).}
 
-\item{fct}{The minimum ratio between the percent of nonnull and null groups in the tail (used to determine the support of the nonnull distribution)}
+\item{bmax}{The RHS of the support of the non-null component (default=0.999)}
 
 \item{subsamplesize}{If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=50000).}
 
@@ -59,9 +59,13 @@ A list with the following:
 \item{p_0} {The estimated probability of the null component.}
 \item{ahat} {The estimated first parameter of the nonnull beta component.}
 \item{bhat} {The estimated second parameter of the nonnull beta component.}
+\item{N} {The sample size.}
 \item{etahat} {If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
-\item {bmax} {The estimated right-hand side of the support of the non-null component.}
-\item {ppthr} {The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
+\item{bmax} {The user-defined right-hand side of the support of the non-null component.}
+\item{ppthr} {The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
+\item{P} {The number of nodes.}
+\item{edges} {The number of edges found.}
+\item{cnt} {The number of EM iterations.}
 }
 }
 \description{
