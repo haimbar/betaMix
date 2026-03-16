@@ -91,24 +91,24 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
   tol <- max(tol, 1/length(z_j))
   p0 <- min(length(which(z_j > qbeta(0.1, etahat, 0.5)))/(0.9*length(z_j)), 1)
   if(msg) { cat("Fitting the model...\n") }
-  inNonNullSupport <- which(z_j <= bmax)
+  inNonNullSupport <- which(z_j < bmax)
   p0f0 <- p0*dbeta(z_j, etahat, 0.5)
   p1f1 <- rep(0,length(z_j))
   p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/bmax, ahat, bhat)
   m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
   p0new <- p0 - 10*tol
   cnt <- 0
-  while (abs(p0-p0new) > tol & (cnt <- cnt+1) < mxcnt) {
+  while (abs(p0-p0new) > tol && (cnt <- cnt+1) < mxcnt) {
     p0 <- p0new
     if(!ind) {
       etahat <- try(uniroot(etafun, c(1,(N-1)/2), z_j=z_j, m0=m0,
                             lower=1, upper=(N-1)/2)$root, silent=TRUE)
-      if (class(etahat) == "try-error")
+      if (inherits(etahat, "try-error"))
         message("betaMix error when estimating eta:", etahat,"\n")
     }
     ests <- try(nleqslv(c(ahat, bhat), MLEfun, jac=jacmle,
                         z_j0=z_j, m=m0, xmax=bmax)$x, silent=TRUE)
-    if (class(ests) == "try-error") {
+    if (inherits(ests, "try-error")) {
       message("betaMix error when estimating a and b:", ests,"\n")
     } else {
       ahat <- min(max(ests[1], 0.5), 1000)
@@ -322,7 +322,7 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
 #' }
 shortSummary <- function(betamixobj) {
   with(betamixobj,{
-    cat(paste0("Nonnoll support = [0,",format(bmax, digits=3),"]\nahat = ",
+    cat(paste0("Nonnull support = [0,",format(bmax, digits=3),"]\nahat = ",
                format(ahat, digits=2), ", bhat = ",format(bhat, digits=2),
                "\netahat = ",format(etahat, digits=2),
                "\nPost. Pr. threshold = ", format(ppthr, digits=2)),"\n")
@@ -360,7 +360,7 @@ shortSummary <- function(betamixobj) {
 #'    plotCluster(am,1,edgecols = c("blue","red"), labels=TRUE)
 #' }
 sphericalCaps <- function(A) {
-  stopifnot(grep("Matrix", class(A)) > 0)
+  stopifnot(is(A, "Matrix"))
   A <- abs(A)
   diag(A) <- FALSE
   deg <- Matrix::rowSums(A)
@@ -373,7 +373,7 @@ sphericalCaps <- function(A) {
   retdf <- data.frame(matrix(vector(), 0, 5))
   orddeg <- order(deg, decreasing = TRUE)
   capNum <- 1
-  while (max(deg[orddeg]) > 0) {
+  while (length(orddeg) > 0 && max(deg[orddeg]) > 0) {
     capCtr <- orddeg[1]
     if(deg[capCtr] == 0)
       break
@@ -423,7 +423,7 @@ sphericalCaps <- function(A) {
 #'    head(SimComp)
 #' }
 graphComponents <- function(A, minCtr=5, type=1) {
-  stopifnot(grep("Matrix", class(A)) > 0)
+  stopifnot(is(A, "Matrix"))
   A <- abs(A)
   Vn <- ncol(A)
   ctrs <- rep(2*Vn, Vn)
@@ -581,7 +581,7 @@ clusteringCoef <- function(A) {
     if (rsum[i] <= 1)
       cc[i] <- 0
     else {
-      nbrs <- which(A[i,] == 1)
+      nbrs <- which(A[i,] != 0)
       At <- A[nbrs, nbrs]
       cc[i] <- 0.5*sum(At)/choose(rsum[i],2)
     }
@@ -696,7 +696,7 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol
     sizes <- pmax(0.3,tmpclusterInfo$degree/max(tmpclusterInfo$degree))
     opacity <- 0.25+tmpclusterInfo$intEdges/tmpclusterInfo$degree
     opacity <- opacity/max(opacity)
-    nodecol <- rgb(t(col2rgb(nodecol)/255),alpha=opacity)[ids]
+    nodecol <- rgb(t(col2rgb(nodecol[ids])/255), alpha=opacity)
     plot(rads*cos(thetas), rads*sin(thetas),cex=sizes*3, pch=19,axes=FALSE,
          xlab="",ylab="",col=nodecol, main=figtitle,
          ylim=c(min(rads*sin(thetas)), 1.1*max(rads*sin(thetas))))
@@ -704,8 +704,8 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol
       nbrs <- setdiff(which(abs(tmpA[i,]) == 1), 1:i)
       if(length(nbrs) > 0) {
         edgecol <- rep(edgecols[1], ncol(tmpA))
-        if (edgecols[2] %in% colours()) {
-          edgecol[which(tmpA[i,nbrs] == -1)] <- edgecols[2]
+        if (length(edgecols) >= 2 && edgecols[2] %in% colours()) {
+          edgecol[nbrs[which(tmpA[i,nbrs] == -1)]] <- edgecols[2]
         }
         for (j in nbrs) {
           lines(c(rads[i]*cos(thetas[i]), rads[j]*cos(thetas[j])),
