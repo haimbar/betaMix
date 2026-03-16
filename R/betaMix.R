@@ -304,7 +304,6 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
     lines(ccc, (1-p0)*dbeta(ccc/bmax, ahat, bhat), lwd=1, col=2)
     lines(ccc, (1-p0)*dbeta(ccc/bmax, ahat, bhat)+
             p0*dbeta(ccc,etahat,0.5), col=4, lwd=2)
-    cccsig <- ccc[which(ccc<ppthr)]
     rect(0,0, ppthr, yLim, col='#FF7F5020', border = "orange")
   })
 }
@@ -533,7 +532,6 @@ summarizeClusters <- function(clustersInfo) {
 collapsedGraph <- function(A, clustersInfo) {
   collDim <- length(which(clustersInfo$clustNo == 0)) + max(clustersInfo$clustNo)
   collA <- Matrix::Matrix(0, ncol=collDim, nrow=collDim)
-  inCluster <- which(clustersInfo$clustNo > 0)
   notInCluster <- which(clustersInfo$clustNo == 0)
   if (length(notInCluster) > 0) {
     collA[1:length(notInCluster), 1:length(notInCluster)] <- A[notInCluster, notInCluster]>0
@@ -608,7 +606,7 @@ clusteringCoef <- function(A) {
 #' }
 plotDegCC <- function(betamixobj, clusterInfo=NULL, highlightNodes=NULL) {
   if (is.null(clusterInfo))
-    clusterInfo <-  graphComponents(betamixobj$AdjMat)
+    clusterInfo <- graphComponents(getAdjMat(betamixobj))
   cc0 <- clusterInfo$cc
   deg0 <- clusterInfo$degree
   plot(deg0, deg0*cc0,axes=FALSE,xlim=c(0,max(deg0)),
@@ -745,7 +743,6 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol
 #'    head(summarizeClusters(SimComp))
 #' }
 shortestPathDistance <- function(AdjMat, numSteps=0) {
-  degs <- 1:ncol(AdjMat)
   if (numSteps == 0)
     return(AdjMat)
   An <- Ap <- minDist <- AdjMat
