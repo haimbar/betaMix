@@ -11,20 +11,22 @@ graphComponents(A, minCtr = 5, type = 1)
 
 \item{minCtr}{The minimum centrality value to be considered for a cluster center (default=5).}
 
-\item{type}{Determines how the centrality measure is computed.}
+\item{type}{Determines how the centrality measure is computed: positive
+values use (type*CC+1)*deg; negative values use CC*deg; 0 gives plain
+degree.}
 }
 \value{
 A data frame with the following columns:
-\itemize{
- \item{labels} {Node label (e.g. gene names).}
-\item{degree} {Node degree.}
-\item{cc} {Node clustering coefficient.}
-\item{ctr} {Node centrality measure: (type\*CC+1)\*deg, or CC\*deg if type is negative.}
-\item{clustNo} {Cluster number.}
-\item {iscenter} {1 for the node was chosen as the cluster's center, 0 otherwise.}
-\item {intEdges} {Number of edges from the node to nodes in the same cluster.}
-\item {extEdges} {Number of edges from the node to nodes NOT in the same cluster.}
-\item {distCenter} {Standardized Manhattan distance to the central node.}
+\describe{
+\item{labels}{Node label (e.g. gene names).}
+\item{degree}{Node degree.}
+\item{cc}{Node clustering coefficient.}
+\item{ctr}{Node centrality measure: (type*CC+1)*deg, or CC*deg if type is negative.}
+\item{clustNo}{Cluster number.}
+\item{iscenter}{1 if the node was chosen as the cluster's center, 0 otherwise.}
+\item{intEdges}{Number of edges from the node to nodes in the same cluster.}
+\item{extEdges}{Number of edges from the node to nodes NOT in the same cluster.}
+\item{distCenter}{Standardized Manhattan distance to the central node.}
 }
 }
 \description{
@@ -32,10 +34,10 @@ Take an adjacency Matrix as input and find clusters. For each node, find the deg
 }
 \examples{
 \dontrun{
-   data(SIM,package = "betaMix")
-   res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-   adjMat <- getAdjMat(res)
-   SimComp <- graphComponents(adjMat)
-   head(SimComp)
+data(SIM, package = "betaMix")
+res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+adjMat <- getAdjMat(res)
+SimComp <- graphComponents(adjMat)
+head(SimComp)
 }
 }

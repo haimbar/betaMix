@@ -3,12 +3,12 @@
 \docType{data}
 \name{SixHourImbibed}
 \alias{SixHourImbibed}
-\title{Metabolite Expression data for the the 6-hour imbibed seed group.}
+\title{Metabolite Expression data for the 6-hour imbibed seed group.}
 \format{
 A matrix with 50 rows and 68 columns
 }
 \description{
-SixHourImbibed is a matrix with normalized metabolite data containing with 68 named metabolites, and 50 samples.
+SixHourImbibed is a matrix with normalized metabolite data containing 68 named metabolites, and 50 samples.
 }
 \references{
 \url{https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000561&StudyType=MS&ResultType=1}

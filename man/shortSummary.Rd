@@ -10,12 +10,14 @@ shortSummary(betamixobj)
 \item{betamixobj}{The object (list) returned from the betaMix function.}
 }
 \description{
-Show the number of nodes, the number of possible and detected edges, the estimated proportion of uncorrelated pairs.
+Prints the estimated model parameters (ahat, bhat, etahat), the posterior
+probability threshold, sample size, node count, maximum possible edges,
+detected edges, and estimated null proportion p0.
 }
 \examples{
 \dontrun{
-   data(SIM,package = "betaMix")
-   res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-   shortSummary(res)
+data(SIM, package = "betaMix")
+res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+shortSummary(res)
 }
 }

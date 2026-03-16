@@ -32,7 +32,7 @@ The betaMix package depends on the 'Matrix' package, to allow for efficient stor
 
 # Real data examples
 
-We use metabolomic profile data from the www.metabolomicsworkbench.org website, Study ID ST000561. The data was introduced and analyzed in [@tomatos2017] and like their analysis we focus on 68 named metabolites. In the study, there are two groups of seeds - dry, and 6 hours imbibed. Each one has 50 samples, so P=68, N=50. We construct the network for each group separately. For example, for the dry-seed group we do the following:
+We use metabolomic profile data from the [Metabolomics Workbench](https://www.metabolomicsworkbench.org) website, Study ID ST000561. The data was introduced and analyzed in [@tomatos2017] and like their analysis we focus on 68 named metabolites. In the study, there are two groups of seeds - dry, and 6 hours imbibed. Each one has 50 samples, so P=68, N=50. We construct the network for each group separately. For example, for the dry-seed group we do the following:
 
 ```
 library("betaMix")

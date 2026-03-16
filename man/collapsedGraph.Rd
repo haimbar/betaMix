@@ -19,15 +19,15 @@ Return an adjacency matrix after collapsing clusters into their central nodes.
 }
 \examples{
 \dontrun{
-   data(DrySeeds)
-   res <- betaMix(DrySeeds, maxalpha = 1e-4,ppr = 0.01, ind=TRUE)
-   adjMat <- getAdjMat(res)
-   rownames(adjMat) = colnames(DrySeeds)
-   SimComp <- graphComponents(adjMat)
-   Adj1 <- collapsedGraph(adjMat, SimComp) > 0
-   # with the igraph package, we can do:
-   # plot(graph.adjacency(Adj1, mode="undirected"), vertex.label=rownames(Adj1),
-   # vertex.label.cex=0.7, vertex.size=0, vertex.frame.color="white",
-   # vertex.label.color='blue', edge.color='grey80',  asp=1)
+data(DrySeeds)
+res <- betaMix(DrySeeds, maxalpha = 1e-4, ppr = 0.01, ind = TRUE)
+adjMat <- getAdjMat(res)
+rownames(adjMat) <- colnames(DrySeeds)
+SimComp <- graphComponents(adjMat)
+Adj1 <- collapsedGraph(adjMat, SimComp) > 0
+# with the igraph package, we can do:
+# plot(graph.adjacency(Adj1, mode="undirected"), vertex.label=rownames(Adj1),
+# vertex.label.cex=0.7, vertex.size=0, vertex.frame.color="white",
+# vertex.label.color='blue', edge.color='grey80',  asp=1)
 }
 }

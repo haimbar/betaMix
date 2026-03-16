@@ -42,7 +42,9 @@ betaMix(
 
 \item{bmax}{The RHS of the support of the non-null component (default=0.999)}
 
-\item{subsamplesize}{If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=50000).}
+\item{subsamplesize}{If at least 20000 and the number of pairs exceeds this
+value, take a random sample of this size to fit the model. Otherwise, use
+all the data (default=50000).}
 
 \item{seed}{The random seed to use if selecting a subset with the subsamplesize parameter (default=912469).}
 
@@ -52,20 +54,20 @@ betaMix(
 }
 \value{
 A list with the following:
-\itemize{
-\item{angleMat} {A PxP matrix with angles between pairs of vectors. If the correlation data is stored in SQLite, then the returned value is database name.}
-\item{z_j} {The statistics z_j=sin^2(angles).}
-\item{m_0} {The posterior null probabilities.}
-\item{p_0} {The estimated probability of the null component.}
-\item{ahat} {The estimated first parameter of the nonnull beta component.}
-\item{bhat} {The estimated second parameter of the nonnull beta component.}
-\item{N} {The sample size.}
-\item{etahat} {If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
-\item{bmax} {The user-defined right-hand side of the support of the non-null component.}
-\item{ppthr} {The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
-\item{P} {The number of nodes.}
-\item{edges} {The number of edges found.}
-\item{cnt} {The number of EM iterations.}
+\describe{
+\item{angleMat}{A PxP matrix with angles between pairs of vectors. If the correlation data is stored in SQLite, then the returned value is database name.}
+\item{z_j}{The statistics z_j=sin^2(angles).}
+\item{m0}{The posterior null probabilities.}
+\item{p0}{The estimated probability of the null component.}
+\item{ahat}{The estimated first parameter of the nonnull beta component.}
+\item{bhat}{The estimated second parameter of the nonnull beta component.}
+\item{N}{The sample size.}
+\item{etahat}{If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
+\item{bmax}{The user-defined right-hand side of the support of the non-null component.}
+\item{ppthr}{The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
+\item{nodes}{The number of nodes.}
+\item{edges}{The number of edges found.}
+\item{cnt}{The number of EM iterations.}
 }
 }
 \description{
@@ -73,8 +75,8 @@ From the pairwise correlations, the function calculates the statistics z_j=sin^2
 }
 \examples{
 \dontrun{
-   data(SIM,package = "betaMix") # variables correspond to columns, samples to rows
-   res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-   plotFittedBetaMix(res)
+data(SIM, package = "betaMix") # variables correspond to columns, samples to rows
+res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+plotFittedBetaMix(res)
 }
 }

@@ -24,38 +24,37 @@ NULL
 #' @param ind Whether the N samples should be assumed to be independent (default=TRUE).
 #' @param msg Whether to print intermediate output messages (default=TRUE).
 #' @return A list with the following:
-#' \itemize{
-#' \item{angleMat} {A PxP matrix with angles between pairs of vectors. If the correlation data is stored in SQLite, then the returned value is database name.}
-#' \item{z_j} {The statistics z_j=sin^2(angles).}
-#' \item{m0} {The posterior null probabilities.}
-#' \item{p0} {The estimated probability of the null component.}
-#' \item{ahat} {The estimated first parameter of the nonnull beta component.}
-#' \item{bhat} {The estimated second parameter of the nonnull beta component.}
-#' \item{N} {The sample size.}
-#' \item{etahat} {If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
-#' \item{bmax} {The user-defined right-hand side of the support of the non-null component.}
-#' \item{ppthr} {The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
-#' \item{nodes} {The number of nodes.}
-#' \item{edges} {The number of edges found.}
-#' \item{cnt} {The number of EM iterations.}
+#' \describe{
+#' \item{angleMat}{A PxP matrix with angles between pairs of vectors. If the correlation data is stored in SQLite, then the returned value is database name.}
+#' \item{z_j}{The statistics z_j=sin^2(angles).}
+#' \item{m0}{The posterior null probabilities.}
+#' \item{p0}{The estimated probability of the null component.}
+#' \item{ahat}{The estimated first parameter of the nonnull beta component.}
+#' \item{bhat}{The estimated second parameter of the nonnull beta component.}
+#' \item{N}{The sample size.}
+#' \item{etahat}{If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
+#' \item{bmax}{The user-defined right-hand side of the support of the non-null component.}
+#' \item{ppthr}{The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
+#' \item{nodes}{The number of nodes.}
+#' \item{edges}{The number of edges found.}
+#' \item{cnt}{The number of EM iterations.}
 #' }
 #' @export
 #' @import DBI stats nleqslv
 #' @importFrom stats cor dbeta pbeta qbeta optimize
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix") # variables correspond to columns, samples to rows
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    plotFittedBetaMix(res)
+#' data(SIM, package = "betaMix") # variables correspond to columns, samples to rows
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' plotFittedBetaMix(res)
 #' }
-
-betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
-                    ppr=0.05, mxcnt=200, ahat=8, bhat=3, bmax=0.999,
-                    subsamplesize=50000, seed=912469, ind=TRUE, msg=TRUE) {
-  if(msg) { cat("Generating the z_ij statistics...\n") }
+betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-4,
+                    ppr = 0.05, mxcnt = 200, ahat = 8, bhat = 3, bmax = 0.999,
+                    subsamplesize = 50000, seed = 912469, ind = TRUE, msg = TRUE) {
+  if (msg) cat("Generating the z_ij statistics...\n")
   if (!is.null(dbname)) {
-    if(!file.exists(dbname)) {
-      message(paste("SQLite database",dbname,"not found!\n"))
+    if (!file.exists(dbname)) {
+      message(paste("SQLite database", dbname, "not found!\n"))
       return(NULL)
     }
     con <- dbConnect(RSQLite::SQLite(), dbname)
@@ -64,11 +63,12 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
     dbClearResult(res)
     P <- metadata$p
     N <- metadata$n
-    etahat <- (N-1)/2
-    if (subsamplesize < 20000)
+    etahat <- (N - 1) / 2
+    if (subsamplesize < 20000) {
       res <- dbSendQuery(con, sprintf("SELECT * FROM correlations"))
-    else
-      res <- dbSendQuery(con, sprintf("SELECT * FROM correlations ORDER BY random()  LIMIT %d",subsamplesize))
+    } else {
+      res <- dbSendQuery(con, sprintf("SELECT * FROM correlations ORDER BY random() LIMIT %d", subsamplesize))
+    }
     subtable <- dbFetch(res)
     dbClearResult(res)
     z_j <- sort(pmin(1 - calcAcc, pmax(calcAcc, subtable$zij)))
@@ -76,35 +76,36 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
   } else {
     N <- nrow(M)
     P <- ncol(M)
-    etahat <- (N-1)/2
+    etahat <- (N - 1) / 2
     corM <- cor(M)
-    if(any(is.na(corM)))
+    if (any(is.na(corM))) {
       corM[is.na(corM)] <- 0
+    }
     # Store corM directly (not acos(corM)): getAdjMat uses (1 - corM^2) < ppthr
     # instead of sin(acos(r))^2 — same value, eliminates P^2 trig calls.
     angleMat <- corM
     # sin^2(arccos(r)) == 1 - r^2; avoids sin() on the lower triangle
-    z_j <- pmin(1-calcAcc, pmax(calcAcc, 1 - corM[lower.tri(corM)]^2))
+    z_j <- pmin(1 - calcAcc, pmax(calcAcc, 1 - corM[lower.tri(corM)]^2))
     z_jall <- c()
     if ((length(z_j) > subsamplesize) && (subsamplesize >= 20000)) {
       z_jall <- sort(z_j)
       set.seed(seed)
       z_j <- sort(z_j[sample(length(z_j), subsamplesize)])
     } else {
-      z_j <- sort(z_j)   # sort so findInterval() works below
+      z_j <- sort(z_j) # sort so findInterval() works below
     }
   }
-  tol  <- max(tol, 1/length(z_j))
+  tol <- max(tol, 1 / length(z_j))
   # O(log n) initial p0: z_j is sorted so findInterval gives a binary search
   thr0 <- qbeta(0.1, etahat, 0.5)
-  p0   <- min((length(z_j) - findInterval(thr0, z_j)) / (0.9 * length(z_j)), 1)
-  if(msg) { cat("Fitting the model...\n") }
+  p0 <- min((length(z_j) - findInterval(thr0, z_j)) / (0.9 * length(z_j)), 1)
+  if (msg) cat("Fitting the model...\n")
   # Precompute nonnull support once: z_j is sorted and bmax is constant
-  nns     <- seq_len(findInterval(bmax, z_j))
+  nns <- seq_len(findInterval(bmax, z_j))
   z_j_nns <- z_j[nns] / bmax
   # Interior mask and log values for MLEfun — also constant throughout EM
-  inc    <- which(z_j_nns > 1e-6 & z_j_nns < 1 - 1e-6)
-  log_z  <- log(z_j_nns[inc])
+  inc <- which(z_j_nns > 1e-6 & z_j_nns < 1 - 1e-6)
+  log_z <- log(z_j_nns[inc])
   log1mz <- log(1 - z_j_nns[inc])
   # Precompute null density once; stays constant when ind=TRUE (etahat fixed).
   # When ind=FALSE it is refreshed after each successful eta update below.
@@ -112,41 +113,45 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
   m0 <- rep(1, length(z_j))
   if (length(nns) > 0) {
     dbeta0_nns <- dbeta(z_j[nns], etahat, 0.5)
-    p0f0_n     <- p0 * dbeta0_nns
-    p1f1_n     <- (1-p0) * dbeta(z_j_nns, ahat, bhat)
-    m0[nns]    <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
+    p0f0_n <- p0 * dbeta0_nns
+    p1f1_n <- (1 - p0) * dbeta(z_j_nns, ahat, bhat)
+    m0[nns] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
   }
-  p0new <- p0 - 10*tol
+  p0new <- p0 - 10 * tol
   cnt <- 0
-  while (abs(p0-p0new) > tol && (cnt <- cnt+1) < mxcnt) {
+  while (abs(p0 - p0new) > tol && (cnt <- cnt + 1) < mxcnt) {
     p0 <- p0new
     if (!ind) {
       # Precompute O(n) sums once; uniroot calls etafun ~10-50x per solve
-      sum_m0      <- sum(m0)
+      sum_m0 <- sum(m0)
       sum_m0_logz <- sum(m0 * log(z_j))
-      etahat_new  <- try(uniroot(etafun, c(1, (N-1)/2),
-                                 sum_m0 = sum_m0, sum_m0_logz = sum_m0_logz,
-                                 lower = 1, upper = (N-1)/2)$root, silent=TRUE)
-      if (inherits(etahat_new, "try-error"))
+      etahat_new <- try(uniroot(etafun, c(1, (N - 1) / 2),
+        sum_m0 = sum_m0, sum_m0_logz = sum_m0_logz,
+        lower = 1, upper = (N - 1) / 2
+      )$root, silent = TRUE)
+      if (inherits(etahat_new, "try-error")) {
         message("betaMix error when estimating eta:", etahat_new, "\n")
-      else {
+      } else {
         etahat <- etahat_new
         # Refresh null density after successful eta update
-        if (length(nns) > 0)
+        if (length(nns) > 0) {
           dbeta0_nns <- dbeta(z_j[nns], etahat, 0.5)
+        }
       }
     }
     # M-step: precompute O(|nns|) quantities once per EM step so that
     # nleqslv's ~7 evaluations of MLEfun/jacmle are O(1) scalar arithmetic.
     m_nns_cur <- m0[nns]
-    sm_val    <- sum(1 - m_nns_cur)
+    sm_val <- sum(1 - m_nns_cur)
     if (!any(is.na(m_nns_cur)) && sm_val >= 1e-10) {
-      wt         <- 1 - m_nns_cur[inc]
-      swt_logz   <- sum(wt * log_z)
+      wt <- 1 - m_nns_cur[inc]
+      swt_logz <- sum(wt * log_z)
       swt_log1mz <- sum(wt * log1mz)
-      ests <- try(nleqslv(c(ahat, bhat), MLEfun, jac = jacmle,
-                          sm_val = sm_val, swt_logz = swt_logz,
-                          swt_log1mz = swt_log1mz)$x, silent=TRUE)
+      ests <- try(nleqslv(c(ahat, bhat), MLEfun,
+        jac = jacmle,
+        sm_val = sm_val, swt_logz = swt_logz,
+        swt_log1mz = swt_log1mz
+      )$x, silent = TRUE)
       if (inherits(ests, "try-error")) {
         message("betaMix error when estimating a and b:", ests, "\n")
       } else {
@@ -156,8 +161,8 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
     }
     # E-step: reuse precomputed dbeta0_nns; m0[-nns] stays 1 (no NA possible)
     if (length(nns) > 0) {
-      p0f0_n  <- p0 * dbeta0_nns
-      p1f1_n  <- (1-p0) * dbeta(z_j_nns, ahat, bhat)
+      p0f0_n <- p0 * dbeta0_nns
+      p1f1_n <- (1 - p0) * dbeta(z_j_nns, ahat, bhat)
       m0[nns] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
     }
     # O(|nns|) mean: m0[-nns] == 1 always, no NA after pmax/pmin
@@ -166,10 +171,11 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
   if (!is.null(dbname)) {
     ppthr <- qbeta(maxalpha, etahat, 0.5)
     critPP <- which(m0 < ppr)
-    if (length(critPP) > 0)
+    if (length(critPP) > 0) {
       ppthr <- max(z_j[critPP])
+    }
     p0 <- mean(m0)
-    res <- dbSendQuery(con, sprintf("SELECT * FROM correlations  WHERE zij < %f",ppthr))
+    res <- dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE zij < %f", ppthr))
     selected <- dbFetch(res)
     edges <- nrow(selected)
     dbClearResult(res)
@@ -179,25 +185,28 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
       z_j <- z_jall
     }
     # Final E-step on the full z_j (recompute nns since z_j may have expanded)
-    nns_f   <- seq_len(findInterval(bmax, z_j))
+    nns_f <- seq_len(findInterval(bmax, z_j))
     m0 <- rep(1, length(z_j))
     if (length(nns_f) > 0) {
       z_j_nns_f <- z_j[nns_f] / bmax
       p0f0_n <- p0 * dbeta(z_j[nns_f], etahat, 0.5)
-      p1f1_n <- (1-p0) * dbeta(z_j_nns_f, ahat, bhat)
+      p1f1_n <- (1 - p0) * dbeta(z_j_nns_f, ahat, bhat)
       m0[nns_f] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
     }
     p0 <- mean(m0)
     ppthr <- qbeta(maxalpha, etahat, 0.5)
     critPP <- which(m0 < ppr)
-    if (length(critPP) > 0)
+    if (length(critPP) > 0) {
       ppthr <- max(z_j[critPP])
+    }
     nonnull <- which(z_j <= ppthr)
     edges <- length(nonnull)
   }
-  if(msg) { cat("Done.\n") }
-  list(angleMat=angleMat, z_j=z_j, m0=m0, p0=p0, N=N, ahat=ahat, bhat=bhat,
-       etahat=etahat, bmax=bmax, ppthr=ppthr, nodes=P, edges=edges, cnt=cnt)
+  if (msg) cat("Done.\n")
+  list(
+    angleMat = angleMat, z_j = z_j, m0 = m0, p0 = p0, N = N, ahat = ahat, bhat = bhat,
+    etahat = etahat, bmax = bmax, ppthr = ppthr, nodes = P, edges = edges, cnt = cnt
+  )
 }
 
 
@@ -217,46 +226,45 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
 #' @export
 #' @examples
 #' \dontrun{
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    adjMat <- getAdjMat(res)
-#'    image(adjMat[1:80,1:80])
-#'    # See online documentation for usage when SQLite is used.
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-5, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' adjMat <- getAdjMat(res)
+#' image(adjMat[1:80, 1:80])
+#' # See online documentation for usage when SQLite is used.
 #' }
-getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
+getAdjMat <- function(res, dbname = NULL, ppthr = NULL, signed = FALSE, nodes = NULL) {
   if (any(nodes > res$nodes)) {
-    cat("Node number out of range. Max=",res$nodes,"\n")
+    cat("Node number out of range. Max=", res$nodes, "\n")
     return(NULL)
   }
-  if (is.null(ppthr))
+  if (is.null(ppthr)) {
     ppthr <- res$ppthr
-  if(is.null(dbname)) {
-    if (!is.null(nodes)){
+  }
+  if (is.null(dbname)) {
+    if (!is.null(nodes)) {
       if (length(nodes) == 1) {
-        Atmp <- Matrix(res$angleMat[nodes,], nrow=1)
+        Atmp <- Matrix(res$angleMat[nodes, ], nrow = 1)
       } else {
-        Atmp <- Matrix(res$angleMat[nodes,])
+        Atmp <- Matrix(res$angleMat[nodes, ])
       }
       nbrs <- which(colSums((1 - Atmp^2) < ppthr) > 0)
-      # if (length(setdiff(nbrs,nodes)) == 0) {
-      #   cat("No additional neighbors found.\n")
-      # }
-      selected <- sort(union(nodes,nbrs))
+      selected <- sort(union(nodes, nbrs))
       angMat <- res$angleMat[selected, selected]
     } else {
       angMat <- res$angleMat
     }
     # angleMat now holds corM; sin(acos(r))^2 == 1-r^2, acos(r)>pi/2 == r<0
     A <- (1 - angMat^2) < ppthr
-    if(signed){
+    if (signed) {
       negedges <- intersect(which(A > 0), which(angMat < 0))
-      if (length(negedges) > 0)
+      if (length(negedges) > 0) {
         A[negedges] <- -1
+      }
     }
     diag(A) <- FALSE
     return(A)
   }
-  if(!file.exists(dbname)) {
-    message(paste("SQLite database",dbname,"not found!\n"))
+  if (!file.exists(dbname)) {
+    message(paste("SQLite database", dbname, "not found!\n"))
     return(NULL)
   }
   con <- dbConnect(RSQLite::SQLite(), dbname)
@@ -267,24 +275,24 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
   res <- dbSendQuery(con, "select name from predictors")
   pnames <- unlist(dbFetch(res))
   dbClearResult(res)
-  A <- Matrix::Matrix(FALSE,P,P)
+  A <- Matrix::Matrix(FALSE, P, P)
   colnames(A) <- pnames
   if (is.null(nodes)) {
-    res <- dbSendQuery(con, sprintf("SELECT * FROM correlations  WHERE zij < %f",ppthr))
+    res <- dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE zij < %f", ppthr))
   } else {
-    sset <- paste(nodes, collapse=",")
-    res <- dbSendQuery(con, sprintf("SELECT * FROM correlations  WHERE (node1 IN (%s)  or node2 IN (%s)) AND zij < %f", sset, sset,ppthr))
+    sset <- paste(nodes, collapse = ",")
+    res <- dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE (node1 IN (%s) OR node2 IN (%s)) AND zij < %f", sset, sset, ppthr))
   }
   selected <- dbFetch(res)
   dbClearResult(res)
   dbDisconnect(con)
-  if(nrow(selected) == 0) {
+  if (nrow(selected) == 0) {
     message("Zero rows selected.\n")
     return(NULL)
   }
-  selectedCells <- P*(selected$node1-1) + selected$node2
-  A[selectedCells]  <- TRUE
-  if(signed) {
+  selectedCells <- P * (selected$node1 - 1) + selected$node2
+  A[selectedCells] <- TRUE
+  if (signed) {
     A[selectedCells[which(selected$corr < 0)]] <- -1
   }
   return(A + Matrix::t(A))
@@ -297,11 +305,13 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
 # recomputed on each of nleqslv's ~7 function evaluations per EM step.
 # '...' absorbs the swt_logz / swt_log1mz scalars forwarded by nleqslv.
 jacmle <- function(par, sm_val, ...) {
-  a   <- par[1]
-  b   <- par[2]
-  tab <- trigamma(a + b)          # computed once; used three times below
-  sm_val * matrix(c(tab - trigamma(a), tab,
-                    tab, tab - trigamma(b)), 2, 2)
+  a <- par[1]
+  b <- par[2]
+  tab <- trigamma(a + b) # computed once; used three times below
+  sm_val * matrix(c(
+    tab - trigamma(a), tab,
+    tab, tab - trigamma(b)
+  ), 2, 2)
 }
 
 
@@ -310,11 +320,13 @@ jacmle <- function(par, sm_val, ...) {
 # All O(|nns|) sums are precomputed once before each nleqslv call and passed
 # as scalars, so MLEfun is pure scalar arithmetic (~7x fewer vector ops/step).
 MLEfun <- function(par, sm_val, swt_logz, swt_log1mz) {
-  a   <- par[1]
-  b   <- par[2]
-  dab <- digamma(a + b)           # computed once; used twice below
-  c(sm_val * (digamma(a) - dab) - swt_logz,
-    sm_val * (digamma(b) - dab) - swt_log1mz)
+  a <- par[1]
+  b <- par[2]
+  dab <- digamma(a + b) # computed once; used twice below
+  c(
+    sm_val * (digamma(a) - dab) - swt_logz,
+    sm_val * (digamma(b) - dab) - swt_log1mz
+  )
 }
 
 
@@ -327,26 +339,30 @@ etafun <- function(eta, sum_m0, sum_m0_logz) {
 
 
 #' Plot the histogram of the z_j and the fitted mixture distribution.
-#' 
+#'
 #' @param betaMixObj An object returned from betaMix()
 #' @param yLim The maximum value on the y-axis (default=5)
 #' @export
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    plotFittedBetaMix(res)
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-5, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' plotFittedBetaMix(res)
 #' }
-plotFittedBetaMix <- function(betaMixObj, yLim=5) {
+plotFittedBetaMix <- function(betaMixObj, yLim = 5) {
   with(betaMixObj, {
-    ccc <- seq(0.001,0.999,length=1000)
-    hist(z_j,freq=FALSE,breaks=300, border="grey",main="",ylim=c(0,yLim),
-         xlim=c(0,1),xlab=expression(sin^{2} ~ (theta)))
-    lines(ccc, p0*dbeta(ccc, etahat, 0.5),col=5, lwd=4, lty=2)
-    lines(ccc, (1-p0)*dbeta(ccc/bmax, ahat, bhat), lwd=1, col=2)
-    lines(ccc, (1-p0)*dbeta(ccc/bmax, ahat, bhat)+
-            p0*dbeta(ccc,etahat,0.5), col=4, lwd=2)
-    rect(0,0, ppthr, yLim, col='#FF7F5020', border = "orange")
+    ccc <- seq(0.001, 0.999, length = 1000)
+    hist(z_j,
+      freq = FALSE, breaks = 300, border = "grey", main = "", ylim = c(0, yLim),
+      xlim = c(0, 1), xlab = expression(sin^{
+        2
+      } ~ (theta))
+    )
+    lines(ccc, p0 * dbeta(ccc, etahat, 0.5), col = 5, lwd = 4, lty = 2)
+    lines(ccc, (1 - p0) * dbeta(ccc / bmax, ahat, bhat), lwd = 1, col = 2)
+    lines(ccc, (1 - p0) * dbeta(ccc / bmax, ahat, bhat) +
+      p0 * dbeta(ccc, etahat, 0.5), col = 4, lwd = 2)
+    rect(0, 0, ppthr, yLim, col = "#FF7F5020", border = "orange")
   })
 }
 
@@ -359,21 +375,23 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
 #' @export
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    shortSummary(res)
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' shortSummary(res)
 #' }
 shortSummary <- function(betamixobj) {
-  with(betamixobj,{
-    cat(paste0("Nonnull support = [0,",format(bmax, digits=3),"]\nahat = ",
-               format(ahat, digits=2), ", bhat = ",format(bhat, digits=2),
-               "\netahat = ",format(etahat, digits=2),
-               "\nPost. Pr. threshold = ", format(ppthr, digits=2)),"\n")
-    cat("Sample size =", N,"\n")
-    cat("No. nodes =", prettyNum(nodes,big.mark = ","),"\n")
-    cat("Max no. edges =", prettyNum(choose(nodes, 2),big.mark = ","),"\n")
-    cat("No. edges detected =", prettyNum(edges,big.mark = ","),"\n")
-    cat("p0 =",format(p0,digits=3),"\n")
+  with(betamixobj, {
+    cat(paste0(
+      "Nonnull support = [0,", format(bmax, digits = 3), "]\nahat = ",
+      format(ahat, digits = 2), ", bhat = ", format(bhat, digits = 2),
+      "\netahat = ", format(etahat, digits = 2),
+      "\nPost. Pr. threshold = ", format(ppthr, digits = 2)
+    ), "\n")
+    cat("Sample size =", N, "\n")
+    cat("No. nodes =", prettyNum(nodes, big.mark = ","), "\n")
+    cat("Max no. edges =", prettyNum(choose(nodes, 2), big.mark = ","), "\n")
+    cat("No. edges detected =", prettyNum(edges, big.mark = ","), "\n")
+    cat("p0 =", format(p0, digits = 3), "\n")
   })
 }
 
@@ -385,24 +403,25 @@ shortSummary <- function(betamixobj) {
 #' allowed to appear in multiple caps.
 #' @param A An adjacency Matrix(0/1), zeros on the main diagonal.
 #' @return A data frame with the following columns:
-#' \itemize{
-#' \item{node} {Node number (row/column in A.)}
-#' \item{capNum} {The cap number.}
-#' \item{isCtr} {1 if the node is the center of the cap, 0 otherwise.}
-#' \item{deg} {Node degree.}
-#' \item{cc} {Clustering coefficient.}
+#' \describe{
+#' \item{node}{Node number (row/column in A.)}
+#' \item{capNum}{The cap number.}
+#' \item{isCtr}{1 if the node is the center of the cap, 0 otherwise.}
+#' \item{deg}{Node degree.}
+#' \item{cc}{Clustering coefficient.}
 #' }
 #' @importFrom Matrix Matrix rowSums diag
+#' @importFrom methods is
 #' @export
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    adjMat <- getAdjMat(res)
-#'    caps <- sphericalCaps(adjMat)
-#'    head(caps)
-#'    am <- getAdjMat(res, signed = TRUE, nodes=caps$node[which(caps$capNum==1)])
-#'    plotCluster(am,1,edgecols = c("blue","red"), labels=TRUE)
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' adjMat <- getAdjMat(res)
+#' caps <- sphericalCaps(adjMat)
+#' head(caps)
+#' am <- getAdjMat(res, signed = TRUE, nodes = caps$node[which(caps$capNum == 1)])
+#' plotCluster(am, 1, edgecols = c("blue", "red"), labels = TRUE)
 #' }
 sphericalCaps <- function(A) {
   stopifnot(is(A, "Matrix"))
@@ -420,20 +439,24 @@ sphericalCaps <- function(A) {
   capNum <- 1
   while (length(orddeg) > 0 && max(deg[orddeg]) > 0) {
     capCtr <- orddeg[1]
-    if(deg[capCtr] == 0)
+    if (deg[capCtr] == 0) {
       break
-    nbrs <- setdiff(which(A[capCtr,] != 0), capCtr)
+    }
+    nbrs <- setdiff(which(A[capCtr, ] != 0), capCtr)
     orddeg <- setdiff(orddeg, union(capCtr, nbrs))
-    tmpdf <- cbind(c(capCtr,nbrs), 
-                   rep(capNum,length(c(capCtr,nbrs))),
-                   c(1,rep(0,length(nbrs))),
-                   deg[c(capCtr,nbrs)],
-                   CC[c(capCtr,nbrs)])
-    rownames(tmpdf) <- sprintf("%s_%04d",rownames(tmpdf),tmpdf[,2])
+    tmpdf <- cbind(
+      c(capCtr, nbrs),
+      rep(capNum, length(c(capCtr, nbrs))),
+      c(1, rep(0, length(nbrs))),
+      deg[c(capCtr, nbrs)],
+      CC[c(capCtr, nbrs)]
+    )
+    rownames(tmpdf) <- sprintf("%s_%04d", rownames(tmpdf), tmpdf[, 2])
     retdf <- rbind(retdf, tmpdf)
     capNum <- capNum + 1
-    if(length(orddeg) == 0)
+    if (length(orddeg) == 0) {
       break
+    }
   }
   colnames(retdf) <- c("node", "capNum", "isCtr", "deg", "cc")
   return(retdf)
@@ -449,67 +472,73 @@ sphericalCaps <- function(A) {
 #'   values use (type*CC+1)*deg; negative values use CC*deg; 0 gives plain
 #'   degree.
 #' @return A data frame with the following columns:
-#' \itemize{
-#'  \item{labels} {Node label (e.g. gene names).}
-#' \item{degree} {Node degree.}
-#' \item{cc} {Node clustering coefficient.}
-#' \item{ctr} {Node centrality measure: (type\*CC+1)\*deg, or CC\*deg if type is negative.}
-#' \item{clustNo} {Cluster number.}
-#' \item {iscenter} {1 for the node was chosen as the cluster's center, 0 otherwise.}
-#' \item {intEdges} {Number of edges from the node to nodes in the same cluster.}
-#' \item {extEdges} {Number of edges from the node to nodes NOT in the same cluster.}
-#' \item {distCenter} {Standardized Manhattan distance to the central node.}
+#' \describe{
+#' \item{labels}{Node label (e.g. gene names).}
+#' \item{degree}{Node degree.}
+#' \item{cc}{Node clustering coefficient.}
+#' \item{ctr}{Node centrality measure: (type*CC+1)*deg, or CC*deg if type is negative.}
+#' \item{clustNo}{Cluster number.}
+#' \item{iscenter}{1 if the node was chosen as the cluster's center, 0 otherwise.}
+#' \item{intEdges}{Number of edges from the node to nodes in the same cluster.}
+#' \item{extEdges}{Number of edges from the node to nodes NOT in the same cluster.}
+#' \item{distCenter}{Standardized Manhattan distance to the central node.}
 #' }
+#' @importFrom methods is
 #' @export
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    adjMat <- getAdjMat(res)
-#'    SimComp <- graphComponents(adjMat)
-#'    head(SimComp)
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' adjMat <- getAdjMat(res)
+#' SimComp <- graphComponents(adjMat)
+#' head(SimComp)
 #' }
-graphComponents <- function(A, minCtr=5, type=1) {
+graphComponents <- function(A, minCtr = 5, type = 1) {
   stopifnot(is(A, "Matrix"))
   A <- abs(A)
   Vn <- ncol(A)
-  ctrs <- rep(2*Vn, Vn)
+  ctrs <- rep(2 * Vn, Vn)
   labels <- 1:Vn
-  if(!is.null(rownames(A)))
+  if (!is.null(rownames(A))) {
     labels <- rownames(A)
+  }
   deg <- Matrix::rowSums(A)
   CC <- clusteringCoef(A)
-  ctrs <- (type*CC+1)*deg
-  if (type < 0)
-    ctrs <- CC*deg
-  clustersInfo <- data.frame(labels=labels, degree=deg, cc=CC, ctr=ctrs,
-                             clustNo=rep(0,Vn), iscenter=rep(0,Vn),
-                             intEdges=rep(0,Vn), extEdges=rep(0,Vn),
-                             distCenter=rep(0,Vn))
+  ctrs <- (type * CC + 1) * deg
+  if (type < 0) {
+    ctrs <- CC * deg
+  }
+  clustersInfo <- data.frame(
+    labels = labels, degree = deg, cc = CC, ctr = ctrs,
+    clustNo = rep(0, Vn), iscenter = rep(0, Vn),
+    intEdges = rep(0, Vn), extEdges = rep(0, Vn),
+    distCenter = rep(0, Vn)
+  )
   clustNo <- 1
   clustered <- which(deg < 1)
-  while(length(clustered) < Vn) {
+  while (length(clustered) < Vn) {
     notInCluster <- setdiff(1:Vn, clustered)
-    if (max(ctrs[notInCluster]) < minCtr)
+    if (max(ctrs[notInCluster]) < minCtr) {
       return(clustersInfo)
+    }
     ctrnode <- notInCluster[which.max(ctrs[notInCluster])]
     # candidate cluster neighbors
-    nbrs <- setdiff(sort(c(ctrnode, which(A[ctrnode,] != 0))), clustered)
-    if(length(nbrs) > 1) {
+    nbrs <- setdiff(sort(c(ctrnode, which(A[ctrnode, ] != 0))), clustered)
+    if (length(nbrs) > 1) {
       if (length(nbrs) > minCtr) {
         clustersInfo$iscenter[ctrnode] <- 1
-        clustersInfo$clustNo[union(ctrnode,nbrs)] <- clustNo
-        clustersInfo$intEdges[nbrs] <- Matrix::rowSums(A[nbrs,nbrs])
+        clustersInfo$clustNo[union(ctrnode, nbrs)] <- clustNo
+        clustersInfo$intEdges[nbrs] <- Matrix::rowSums(A[nbrs, nbrs])
         if (length(nbrs) < ncol(A)) {
-          clustersInfo$extEdges[nbrs] <- Matrix::rowSums(A[nbrs,-nbrs])
+          clustersInfo$extEdges[nbrs] <- Matrix::rowSums(A[nbrs, -nbrs])
         } else {
           clustersInfo$extEdges[nbrs] <- 0
         }
-        for (i in 1:length(nbrs)) {
-          clustersInfo$distCenter[nbrs[i]] <- mean(xor(A[ctrnode,], A[nbrs[i],]))
+        for (i in seq_along(nbrs)) {
+          clustersInfo$distCenter[nbrs[i]] <- mean(xor(A[ctrnode, ], A[nbrs[i], ]))
         }
         clustNo <- clustNo + 1
-      }  else {
+      } else {
         nbrs <- c()
       }
     } else {
@@ -529,36 +558,41 @@ graphComponents <- function(A, minCtr=5, type=1) {
 #' @export
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    adjMat <- getAdjMat(res)
-#'    SimComp <- graphComponents(adjMat)
-#'    (summtab <- summarizeClusters(SimComp))
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' adjMat <- getAdjMat(res)
+#' SimComp <- graphComponents(adjMat)
+#' (summtab <- summarizeClusters(SimComp))
 #' }
 summarizeClusters <- function(clustersInfo) {
-  cat("Num of nodes:", nrow(clustersInfo),"\n")
-  cat("Num of edges:", sum(clustersInfo$degree)/2,"\n")
-  cat("Num of clusters:", max(clustersInfo$clustNo),"\n")
-  cat("Num of unclustered nodes:", length(which(clustersInfo$clustNo == 0)),"\n")
-  percentInCluster <- clustersInfo$intEdges/clustersInfo$degree
+  cat("Num of nodes:", nrow(clustersInfo), "\n")
+  cat("Num of edges:", sum(clustersInfo$degree) / 2, "\n")
+  cat("Num of clusters:", max(clustersInfo$clustNo), "\n")
+  cat("Num of unclustered nodes:", length(which(clustersInfo$clustNo == 0)), "\n")
+  percentInCluster <- clustersInfo$intEdges / clustersInfo$degree
   percentInCluster[which(clustersInfo$degree == 0)] <- 0
-  if (max(clustersInfo$clustNo) == 0)
+  if (max(clustersInfo$clustNo) == 0) {
     return(NULL)
-  tab <- matrix(0,nrow=max(clustersInfo$clustNo),ncol=12)
-  for (cnum in 1:max(clustersInfo$clustNo)) {
-    tmpclusterInfo <- clustersInfo[which(clustersInfo$clustNo == cnum),]
-    tab[cnum,] <- c(cnum,nrow(tmpclusterInfo), fivenum(tmpclusterInfo$degree),
-                    fivenum(percentInCluster[which(clustersInfo$clustNo == cnum)]))
   }
-  colnames(tab) <- c("Cluster","Nodes","degreeMin","degreeQ25","degreeMedian",
-                     "degreeQ75","degreeMax","pctInClstMin","pctInClstQ25",
-                     "pctInClstMedian", "pctInClstQ75","pctInClstMax")
+  tab <- matrix(0, nrow = max(clustersInfo$clustNo), ncol = 12)
+  for (cnum in 1:max(clustersInfo$clustNo)) {
+    tmpclusterInfo <- clustersInfo[which(clustersInfo$clustNo == cnum), ]
+    tab[cnum, ] <- c(
+      cnum, nrow(tmpclusterInfo), fivenum(tmpclusterInfo$degree),
+      fivenum(percentInCluster[which(clustersInfo$clustNo == cnum)])
+    )
+  }
+  colnames(tab) <- c(
+    "Cluster", "Nodes", "degreeMin", "degreeQ25", "degreeMedian",
+    "degreeQ75", "degreeMax", "pctInClstMin", "pctInClstQ25",
+    "pctInClstMedian", "pctInClstQ75", "pctInClstMax"
+  )
   tab
 }
 
 
 #' Reduce an adjacency matrix to include only central nodes and nodes not assigned to any cluster.
-#' 
+#'
 #' Return an adjacency matrix after collapsing clusters into their central nodes.
 #' @param A An adjacency Matrix.
 #' @param clustersInfo Obtained from graphComponents
@@ -566,40 +600,47 @@ summarizeClusters <- function(clustersInfo) {
 #' @export
 #' @examples
 #' \dontrun{
-#'    data(DrySeeds)
-#'    res <- betaMix(DrySeeds, maxalpha = 1e-4,ppr = 0.01, ind=TRUE)
-#'    adjMat <- getAdjMat(res)
-#'    rownames(adjMat) = colnames(DrySeeds)
-#'    SimComp <- graphComponents(adjMat)
-#'    Adj1 <- collapsedGraph(adjMat, SimComp) > 0
-#'    # with the igraph package, we can do:
-#'    # plot(graph.adjacency(Adj1, mode="undirected"), vertex.label=rownames(Adj1),
-#'    # vertex.label.cex=0.7, vertex.size=0, vertex.frame.color="white",
-#'    # vertex.label.color='blue', edge.color='grey80',  asp=1)
+#' data(DrySeeds)
+#' res <- betaMix(DrySeeds, maxalpha = 1e-4, ppr = 0.01, ind = TRUE)
+#' adjMat <- getAdjMat(res)
+#' rownames(adjMat) <- colnames(DrySeeds)
+#' SimComp <- graphComponents(adjMat)
+#' Adj1 <- collapsedGraph(adjMat, SimComp) > 0
+#' # with the igraph package, we can do:
+#' # plot(graph.adjacency(Adj1, mode="undirected"), vertex.label=rownames(Adj1),
+#' # vertex.label.cex=0.7, vertex.size=0, vertex.frame.color="white",
+#' # vertex.label.color='blue', edge.color='grey80',  asp=1)
 #' }
 collapsedGraph <- function(A, clustersInfo) {
   collDim <- length(which(clustersInfo$clustNo == 0)) + max(clustersInfo$clustNo)
-  collA <- Matrix::Matrix(0, ncol=collDim, nrow=collDim)
+  collA <- Matrix::Matrix(0, ncol = collDim, nrow = collDim)
   notInCluster <- which(clustersInfo$clustNo == 0)
   if (length(notInCluster) > 0) {
-    collA[1:length(notInCluster), 1:length(notInCluster)] <- A[notInCluster, notInCluster]>0
+    ni <- length(notInCluster)
+    collA[seq_len(ni), seq_len(ni)] <- A[notInCluster, notInCluster] > 0
   }
   if (length(rownames(A)) != nrow(A)) {
-    rownames(A) <- 1:nrow(A)
+    rownames(A) <- seq_len(nrow(A))
   }
-  rownames(collA) <- c(rownames(A)[notInCluster],
-                       paste0("CLS",1:max(clustersInfo$clustNo)))
-  for (i in 1:max(clustersInfo$clustNo)) {
+  nc_max <- max(clustersInfo$clustNo)
+  rownames(collA) <- c(
+    rownames(A)[notInCluster],
+    paste0("CLS", seq_len(nc_max))
+  )
+  for (i in seq_len(nc_max)) {
     Ci <- which(clustersInfo$clustNo == i)
     if (length(notInCluster) > 0) {
-      Atmp <- matrix(A[notInCluster,which(clustersInfo$clustNo==i)],
-                     nrow=length(notInCluster), ncol=length(which(clustersInfo$clustNo==i)))
-      collA[i+length(notInCluster),1:length(notInCluster)] <- Matrix::rowSums(Atmp)
+      ni <- length(notInCluster)
+      Atmp <- matrix(A[notInCluster, which(clustersInfo$clustNo == i)],
+        nrow = ni, ncol = length(which(clustersInfo$clustNo == i))
+      )
+      collA[i + ni, seq_len(ni)] <- Matrix::rowSums(Atmp)
     }
-    if (i < max(clustersInfo$clustNo)) {
-      for (j in (i+1):max(clustersInfo$clustNo)) {
+    if (i < nc_max) {
+      ni <- length(notInCluster)
+      for (j in (i + 1):nc_max) {
         Cj <- which(clustersInfo$clustNo == j)
-        collA[i+length(notInCluster),j+length(notInCluster)] <- sum(A[Ci,Cj])
+        collA[i + ni, j + ni] <- sum(A[Ci, Cj])
       }
     }
   }
@@ -614,22 +655,22 @@ collapsedGraph <- function(A, clustersInfo) {
 #' @export
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    adjMat <- getAdjMat(res)
-#'    clusteringCoef(adjMat)
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' adjMat <- getAdjMat(res)
+#' clusteringCoef(adjMat)
 #' }
 #'
 clusteringCoef <- function(A) {
   rsum <- Matrix::rowSums(A)
-  cc <- rep(0,nrow(A))
-  for (i in 1:nrow(A)) {
-    if (rsum[i] <= 1)
+  cc <- rep(0, nrow(A))
+  for (i in seq_len(nrow(A))) {
+    if (rsum[i] <= 1) {
       cc[i] <- 0
-    else {
-      nbrs <- which(A[i,] != 0)
+    } else {
+      nbrs <- which(A[i, ] != 0)
       At <- A[nbrs, nbrs]
-      cc[i] <- 0.5*sum(At)/choose(rsum[i],2)
+      cc[i] <- 0.5 * sum(At) / choose(rsum[i], 2)
     }
   }
   cc
@@ -649,24 +690,31 @@ clusteringCoef <- function(A) {
 #' @import stats graphics
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    adjMat <- getAdjMat(res)
-#'    SimComp <- graphComponents(adjMat)
-#'    plotDegCC(res,SimComp)
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' adjMat <- getAdjMat(res)
+#' SimComp <- graphComponents(adjMat)
+#' plotDegCC(res, SimComp)
 #' }
-plotDegCC <- function(betamixobj, clusterInfo=NULL, highlightNodes=NULL) {
-  if (is.null(clusterInfo))
+plotDegCC <- function(betamixobj, clusterInfo = NULL, highlightNodes = NULL) {
+  if (is.null(clusterInfo)) {
     clusterInfo <- graphComponents(getAdjMat(betamixobj))
+  }
   cc0 <- clusterInfo$cc
   deg0 <- clusterInfo$degree
-  plot(deg0, deg0*cc0,axes=FALSE,xlim=c(0,max(deg0)),
-       ylim=c(0,1.1*max(deg0*cc0)),main="",
-       xlab=bquote("degree"),ylab=bquote("CC*degree"),
-       col="thistle",pch=24,cex=0.5); axis(1); axis(2)
-  grid(); abline(0,1,col="seagreen1", lwd=2)
-  if (!is.null(highlightNodes))
-    points(deg0[highlightNodes],(deg0*cc0)[highlightNodes],col=2,pch=24,cex=0.5)
+  plot(deg0, deg0 * cc0,
+    axes = FALSE, xlim = c(0, max(deg0)),
+    ylim = c(0, 1.1 * max(deg0 * cc0)), main = "",
+    xlab = bquote("degree"), ylab = bquote("CC*degree"),
+    col = "thistle", pch = 24, cex = 0.5
+  )
+  axis(1)
+  axis(2)
+  grid()
+  abline(0, 1, col = "seagreen1", lwd = 2)
+  if (!is.null(highlightNodes)) {
+    points(deg0[highlightNodes], (deg0 * cc0)[highlightNodes], col = 2, pch = 24, cex = 0.5)
+  }
 }
 
 
@@ -674,28 +722,32 @@ plotDegCC <- function(betamixobj, clusterInfo=NULL, highlightNodes=NULL) {
 #'
 #' Plot a bitmap in which a black dot corresponds to a pair of highly correlated genes (an edge in the graph).
 #' The default is to show the nodes according to their order in the input.
-#' By setting orderByDegree=TRUE as below, it is possible to change the order and cluster them, and show them in increasing degree order (from left to right.)
+#' By setting orderByCluster=TRUE, it is possible to cluster nodes and show
+#' them in increasing degree order (from left to right).
 #' @param AdjMat An adjacency Matrix (0/1).
 #' @param clusterInfo obtained from graphComponents. If not provided by the user, it will be computed on the fly.
-#' @param orderByCluster If false, show the bitmap is the original node order. If TRUE, show nodes by clusters, and sort by distance from the center of the cluster.
+#' @param orderByCluster If FALSE, show the bitmap in the original node order.
+#'   If TRUE, show nodes by clusters, sorted by distance from the cluster center.
 #' @param showMinDegree Non-negative integer indicating the minimum degree of nodes that should be displayed. Default=0 (all nodes).
 #' @export
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    adjMat <- getAdjMat(res)
-#'    SimComp <- graphComponents(adjMat)
-#'    plotBitmapCC(adjMat)
-#'    plotBitmapCC(adjMat, SimComp, orderByCluster=TRUE)
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' adjMat <- getAdjMat(res)
+#' SimComp <- graphComponents(adjMat)
+#' plotBitmapCC(adjMat)
+#' plotBitmapCC(adjMat, SimComp, orderByCluster = TRUE)
 #' }
-plotBitmapCC <- function(AdjMat, clusterInfo=NULL, orderByCluster=FALSE, showMinDegree=0) {
-  if(!is.null(clusterInfo))
+plotBitmapCC <- function(AdjMat, clusterInfo = NULL, orderByCluster = FALSE, showMinDegree = 0) {
+  if (!is.null(clusterInfo)) {
     orderByCluster <- TRUE
+  }
   if (orderByCluster) {
-    if (is.null(clusterInfo))
+    if (is.null(clusterInfo)) {
       clusterInfo <- graphComponents(AdjMat)
-    nodeOrder <- order(clusterInfo$clustNo,clusterInfo$distCenter)
+    }
+    nodeOrder <- order(clusterInfo$clustNo, clusterInfo$distCenter)
     AdjMat <- AdjMat[nodeOrder, nodeOrder]
   }
   showNodes <- which(Matrix::rowSums(AdjMat) >= showMinDegree)
@@ -721,57 +773,65 @@ plotBitmapCC <- function(AdjMat, clusterInfo=NULL, orderByCluster=FALSE, showMin
 #' @importFrom grDevices col2rgb colours rgb
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    adjMat <- getAdjMat(res, signed=TRUE)
-#'    SimComp <- graphComponents(adjMat)
-#'    plotCluster(adjMat, 2, SimComp)
-#'    plotCluster(adjMat, 2, SimComp, edgecols = c("blue","orange"), labels=TRUE)
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-5, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' adjMat <- getAdjMat(res, signed = TRUE)
+#' SimComp <- graphComponents(adjMat)
+#' plotCluster(adjMat, 2, SimComp)
+#' plotCluster(adjMat, 2, SimComp, edgecols = c("blue", "orange"), labels = TRUE)
 #' }
-plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol="blue", labelsize=1, figtitle=NULL, edgecols="grey88") {
-  if(is.null(clusterInfo))
-    clusterInfo <- graphComponents(AdjMat, minCtr=2, type=0)
-  if(length(nodecol) < nrow(AdjMat))
-    nodecol <- rep(nodecol[1],length=nrow(AdjMat))
+plotCluster <- function(AdjMat, clustNo, clusterInfo = NULL, labels = FALSE, nodecol = "blue", labelsize = 1, figtitle = NULL, edgecols = "grey88") {
+  if (is.null(clusterInfo)) {
+    clusterInfo <- graphComponents(AdjMat, minCtr = 2, type = 0)
+  }
+  if (length(nodecol) < nrow(AdjMat)) {
+    nodecol <- rep(nodecol[1], length = nrow(AdjMat))
+  }
   ids <- which(clusterInfo$clustNo == clustNo)
   if (length(ids) > 0) {
-    tmpA <- AdjMat[ids,ids]
-    tmpclusterInfo <- clusterInfo[ids,]
-    rads <- round(10*tmpclusterInfo$distCenter/
-                    max(0.1,max(tmpclusterInfo$distCenter)))
-    thetas <- rep(0,length(rads))
-    intvls <- findInterval(rads,seq(1,10))
+    tmpA <- AdjMat[ids, ids]
+    tmpclusterInfo <- clusterInfo[ids, ]
+    rads <- round(10 * tmpclusterInfo$distCenter /
+      max(0.1, max(tmpclusterInfo$distCenter)))
+    thetas <- rep(0, length(rads))
+    intvls <- findInterval(rads, seq(1, 10))
     for (intvl in unique(sort(intvls))) {
       pts <- which(intvls == intvl)
-      thetas[pts] <- 3*intvl*pi/max(0.01,max(intvls))+seq(0,1.9*pi,length=length(pts))
+      thetas[pts] <- 3 * intvl * pi / max(0.01, max(intvls)) + seq(0, 1.9 * pi, length = length(pts))
     }
-    sizes <- pmax(0.3,tmpclusterInfo$degree/max(tmpclusterInfo$degree))
-    opacity <- 0.25+tmpclusterInfo$intEdges/tmpclusterInfo$degree
-    opacity <- opacity/max(opacity)
-    nodecol <- rgb(t(col2rgb(nodecol[ids])/255), alpha=opacity)
-    plot(rads*cos(thetas), rads*sin(thetas),cex=sizes*3, pch=19,axes=FALSE,
-         xlab="",ylab="",col=nodecol, main=figtitle,
-         ylim=c(min(rads*sin(thetas)), 1.1*max(rads*sin(thetas))))
-    for (i in 1:ncol(tmpA)) {
-      nbrs <- setdiff(which(abs(tmpA[i,]) == 1), 1:i)
-      if(length(nbrs) > 0) {
+    sizes <- pmax(0.3, tmpclusterInfo$degree / max(tmpclusterInfo$degree))
+    opacity <- 0.25 + tmpclusterInfo$intEdges / tmpclusterInfo$degree
+    opacity <- opacity / max(opacity)
+    nodecol <- rgb(t(col2rgb(nodecol[ids]) / 255), alpha = opacity)
+    plot(rads * cos(thetas), rads * sin(thetas),
+      cex = sizes * 3, pch = 19, axes = FALSE,
+      xlab = "", ylab = "", col = nodecol, main = figtitle,
+      ylim = c(min(rads * sin(thetas)), 1.1 * max(rads * sin(thetas)))
+    )
+    for (i in seq_len(ncol(tmpA))) {
+      nbrs <- setdiff(which(abs(tmpA[i, ]) == 1), seq_len(i))
+      if (length(nbrs) > 0) {
         edgecol <- rep(edgecols[1], ncol(tmpA))
         if (length(edgecols) >= 2 && edgecols[2] %in% colours()) {
-          edgecol[nbrs[which(tmpA[i,nbrs] == -1)]] <- edgecols[2]
+          edgecol[nbrs[which(tmpA[i, nbrs] == -1)]] <- edgecols[2]
         }
         for (j in nbrs) {
-          lines(c(rads[i]*cos(thetas[i]), rads[j]*cos(thetas[j])),
-                c(rads[i]*sin(thetas[i]), rads[j]*sin(thetas[j])),
-                col=edgecol[j], lwd=0.5)
+          lines(c(rads[i] * cos(thetas[i]), rads[j] * cos(thetas[j])),
+            c(rads[i] * sin(thetas[i]), rads[j] * sin(thetas[j])),
+            col = edgecol[j], lwd = 0.5
+          )
         }
       }
     }
-    points(rads*cos(thetas), rads*sin(thetas),cex=sizes*3, pch=19, col=nodecol)
-    if (labels)
-      text(rads*cos(thetas), rads*sin(thetas), tmpclusterInfo$labels, pos=3, cex=labelsize)
-    ctr <- which(tmpclusterInfo$iscenter==1)
-    points(rads[ctr]*cos(thetas[ctr]), rads[ctr]*sin(thetas[ctr]),pch=21,
-           cex=sizes[ctr]*3, col="black",lwd=2)
+    points(rads * cos(thetas), rads * sin(thetas), cex = sizes * 3, pch = 19, col = nodecol)
+    if (labels) {
+      text(rads * cos(thetas), rads * sin(thetas), tmpclusterInfo$labels, pos = 3, cex = labelsize)
+    }
+    ctr <- which(tmpclusterInfo$iscenter == 1)
+    points(rads[ctr] * cos(thetas[ctr]), rads[ctr] * sin(thetas[ctr]),
+      pch = 21,
+      cex = sizes[ctr] * 3, col = "black", lwd = 2
+    )
   } else {
     cat("Invalid cluster number\n")
   }
@@ -788,23 +848,25 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol
 #' @export
 #' @examples
 #' \dontrun{
-#'    data(SIM,package = "betaMix")
-#'    res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-#'    adjMat <- getAdjMat(res)
-#'    AdjMat <- shortestPathDistance(adjMat, numSteps=2)
-#'    Matrix::image( (AdjMat>0)[1:200,1:200])
-#'    adjMat1 <- AdjMat>0
-#'    SimComp <- graphComponents(adjMat1)
-#'    head(summarizeClusters(SimComp))
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+#' adjMat <- getAdjMat(res)
+#' AdjMat <- shortestPathDistance(adjMat, numSteps = 2)
+#' Matrix::image((AdjMat > 0)[1:200, 1:200])
+#' adjMat1 <- AdjMat > 0
+#' SimComp <- graphComponents(adjMat1)
+#' head(summarizeClusters(SimComp))
 #' }
-shortestPathDistance <- function(AdjMat, numSteps=0) {
-  if (numSteps == 0)
+shortestPathDistance <- function(AdjMat, numSteps = 0) {
+  if (numSteps == 0) {
     return(AdjMat)
+  }
   An <- Ap <- minDist <- AdjMat
   for (i in 1:numSteps) {
-    An <- Ap%*%AdjMat
-    if (sum((An | Ap) - (An & Ap)) == 0)
+    An <- Ap %*% AdjMat
+    if (sum((An | Ap) - (An & Ap)) == 0) {
       break
+    }
     minDist[(An > 0) & (Ap == 0) & (minDist == 0)] <- i
     Ap <- An
   }
@@ -814,9 +876,9 @@ shortestPathDistance <- function(AdjMat, numSteps=0) {
 
 
 
-#' Metabolite Expression data for the the dry seed group.
+#' Metabolite Expression data for the dry seed group.
 #'
-#' DrySeeds is a matrix with normalized metabolite data containing with 68 named metabolites, and 50 samples.
+#' DrySeeds is a matrix with normalized metabolite data containing 68 named metabolites, and 50 samples.
 #'
 #' @docType data
 #' @keywords datasets
@@ -825,9 +887,9 @@ shortestPathDistance <- function(AdjMat, numSteps=0) {
 #' @references \url{https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000561&StudyType=MS&ResultType=1}
 NULL
 
-#' Metabolite Expression data for the the 6-hour imbibed seed group.
+#' Metabolite Expression data for the 6-hour imbibed seed group.
 #'
-#' SixHourImbibed is a matrix with normalized metabolite data containing with 68 named metabolites, and 50 samples.
+#' SixHourImbibed is a matrix with normalized metabolite data containing 68 named metabolites, and 50 samples.
 #'
 #' @docType data
 #' @keywords datasets

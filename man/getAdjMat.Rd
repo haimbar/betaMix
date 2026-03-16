@@ -2,12 +2,14 @@
 % Please edit documentation in R/betaMix.R
 \name{getAdjMat}
 \alias{getAdjMat}
-\title{Get the adjacency matrix if the pairwise correlation data is stored in a SQL database.}
+\title{Get the adjacency matrix from a fitted betaMix model.}
 \usage{
 getAdjMat(res, dbname = NULL, ppthr = NULL, signed = FALSE, nodes = NULL)
 }
 \arguments{
-\item{res}{The returned value from the betaMix function if the correlation matrix is strored in memory.}
+\item{res}{The object returned by betaMix(). Always required: used to obtain
+the posterior probability threshold and node count regardless of whether
+the correlation data is in memory or in a database.}
 
 \item{dbname}{The sqlite database with the pairwise correlations, if the data is not stored in memory (for very large P). Default=NULL.}
 
@@ -18,13 +20,15 @@ getAdjMat(res, dbname = NULL, ppthr = NULL, signed = FALSE, nodes = NULL)
 \item{nodes}{An optional parameter which allows to create a sparse adjacency matrix containing only the neighbors of the selected nodes (default=NULL).}
 }
 \description{
-SQL storage should be used if P is large and the calculating and storing the correlation matrix will require too much memory.
+Works for both in-memory correlation matrices and SQLite-backed storage.
+SQLite storage should be used if P is large and calculating and storing the
+full correlation matrix would require too much memory.
 }
 \examples{
 \dontrun{
-   res <- betaMix(betaMix::SIM, maxalpha = 1e-5,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-   adjMat <- getAdjMat(res)
-   image(adjMat[1:80,1:80])
-   # See online documentation for usage when SQLite is used.
+res <- betaMix(betaMix::SIM, maxalpha = 1e-5, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+adjMat <- getAdjMat(res)
+image(adjMat[1:80, 1:80])
+# See online documentation for usage when SQLite is used.
 }
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/betaMix.R
 \name{shortestPathDistance}
 \alias{shortestPathDistance}
-\title{Return a Matrix with the shortest path distance between nodes (check up to numSteps.)}
+\title{Return a Matrix with the shortest path distance between nodes.}
 \usage{
 shortestPathDistance(AdjMat, numSteps = 0)
 }
@@ -12,20 +12,21 @@ shortestPathDistance(AdjMat, numSteps = 0)
 \item{numSteps}{The maximum number of edges between pairs of nodes. If numSteps=0, returns the input matrix. numSteps=1 adds neighbors of direct neighbors, etc.}
 }
 \value{
-A Matrix containing the shortset paths between nodes i and j
+A Matrix containing the shortest path lengths between nodes i and j
 }
 \description{
-return the adjacency matrix of expMat connecting neighbors up to numSteps away.
+Returns a matrix whose entry (i,j) is the minimum number of steps from node
+i to node j, considering paths up to numSteps edges long.
 }
 \examples{
 \dontrun{
-   data(SIM,package = "betaMix")
-   res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-   adjMat <- getAdjMat(res)
-   AdjMat <- shortestPathDistance(adjMat, numSteps=2)
-   Matrix::image( (AdjMat>0)[1:200,1:200])
-   adjMat1 <- AdjMat>0
-   SimComp <- graphComponents(adjMat1)
-   head(summarizeClusters(SimComp))
+data(SIM, package = "betaMix")
+res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+adjMat <- getAdjMat(res)
+AdjMat <- shortestPathDistance(adjMat, numSteps = 2)
+Matrix::image((AdjMat > 0)[1:200, 1:200])
+adjMat1 <- AdjMat > 0
+SimComp <- graphComponents(adjMat1)
+head(summarizeClusters(SimComp))
 }
 }

@@ -14,14 +14,17 @@ plotDegCC(betamixobj, clusterInfo = NULL, highlightNodes = NULL)
 \item{highlightNodes}{A vector of node-numbers which will be shown in red. Default is NULL.}
 }
 \description{
-The x-axis represents the number of neighbors of each node, and the y-axis represents the proportion of neighbors which are connected to each other.
+The x-axis represents node degree (number of neighbors). The y-axis
+represents degree multiplied by the clustering coefficient (CC*degree), a
+centrality-like measure that weights high-degree nodes by how interconnected
+their neighborhood is.
 }
 \examples{
 \dontrun{
-   data(SIM,package = "betaMix")
-   res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-   adjMat <- getAdjMat(res)
-   SimComp <- graphComponents(adjMat)
-   plotDegCC(res,SimComp)
+data(SIM, package = "betaMix")
+res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+adjMat <- getAdjMat(res)
+SimComp <- graphComponents(adjMat)
+plotDegCC(res, SimComp)
 }
 }

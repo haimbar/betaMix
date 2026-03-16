@@ -16,22 +16,24 @@ plotBitmapCC(
 
 \item{clusterInfo}{obtained from graphComponents. If not provided by the user, it will be computed on the fly.}
 
-\item{orderByCluster}{If false, show the bitmap is the original node order. If TRUE, show nodes by clusters, and sort by distance from the center of the cluster.}
+\item{orderByCluster}{If FALSE, show the bitmap in the original node order.
+If TRUE, show nodes by clusters, sorted by distance from the cluster center.}
 
 \item{showMinDegree}{Non-negative integer indicating the minimum degree of nodes that should be displayed. Default=0 (all nodes).}
 }
 \description{
 Plot a bitmap in which a black dot corresponds to a pair of highly correlated genes (an edge in the graph).
 The default is to show the nodes according to their order in the input.
-By setting orderByDegree=TRUE as below, it is possible to change the order and cluster them, and show them in increasing degree order (from left to right.)
+By setting orderByCluster=TRUE, it is possible to cluster nodes and show
+them in increasing degree order (from left to right).
 }
 \examples{
 \dontrun{
-   data(SIM,package = "betaMix")
-   res <- betaMix(betaMix::SIM, maxalpha = 1e-6,ppr = 0.01,subsamplesize = 30000, ind=TRUE)
-   adjMat <- getAdjMat(res)
-   SimComp <- graphComponents(adjMat)
-   plotBitmapCC(adjMat)
-   plotBitmapCC(adjMat, SimComp, orderByCluster=TRUE)
+data(SIM, package = "betaMix")
+res <- betaMix(betaMix::SIM, maxalpha = 1e-6, ppr = 0.01, subsamplesize = 30000, ind = TRUE)
+adjMat <- getAdjMat(res)
+SimComp <- graphComponents(adjMat)
+plotBitmapCC(adjMat)
+plotBitmapCC(adjMat, SimComp, orderByCluster = TRUE)
 }
 }
