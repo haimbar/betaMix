@@ -1,4 +1,4 @@
-# betaMix 0.2.4
+# betaMix 0.2.5
 
 ## Bug fixes
 
