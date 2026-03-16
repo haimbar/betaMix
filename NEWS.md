@@ -1,4 +1,4 @@
-# betaMix 0.2.5
+# betaMix 0.2.6
 
 ## Bug fixes
 
@@ -31,6 +31,37 @@
   (returns NULL silently); corrected to `getAdjMat(betamixobj)`.
 
 ## Performance
+
+- Second-round optimisations across R and C++:
+  - `angleMat` now stores the raw correlation matrix `corM` instead of
+    `acos(corM)`, eliminating O(P²) `acos()` calls in `betaMix()` and the
+    matching `sin()` calls in `getAdjMat()`; the identity
+    `sin²(arccos(r)) = 1 − r²` is used in both places.
+  - `getAdjMat()` signed-edge detection changed from
+    `acos(r) > π/2` to the equivalent `r < 0`, avoiding a further O(E)
+    `acos()` evaluation.
+  - `etafun` (called by `uniroot`) now accepts precomputed scalar sums
+    `sum_m0` and `sum_m0·log(z_j)` instead of recomputing them on every
+    function evaluation (~10–50 evaluations per EM step for the `ind=FALSE`
+    path).
+  - `MLEfun` and `jacmle` (called by `nleqslv`) now accept precomputed
+    scalar sums `sm_val`, `swt_logz`, `swt_log1mz`; each is now O(1)
+    scalar arithmetic (~7 evaluations per EM step, all saved).
+  - `dbeta(z_j[nns], etahat, 0.5)` precomputed once before the `while`
+    loop when `ind=TRUE` (constant null density); refreshed only when
+    `etahat` changes in the `ind=FALSE` path.
+  - `p0new` recomputed as O(|nns|) rather than O(n), exploiting the fact
+    that `m0[-nns] = 1` always.
+  - Initial `p0` estimate uses `findInterval()` for O(log n) binary search
+    on sorted `z_j` instead of an O(n) comparison.
+  - `calcCorr.cpp`: `pow(sin(acos(r)),2)` replaced by `1.0 − r*r`;
+    `stdvec()` changed to pass `NumericVector&` by reference (eliminates a
+    copy per column); `corr()` uses a scalar accumulator loop instead of
+    `sum(x*y)` (eliminates a temporary O(n) vector per pair); VLAs
+    `char pname[]` / `char val[]` replaced with `std::vector<char>`.
+  - `calcCorr.cpp` bug fix: output-file null check used `finptr` instead
+    of `foutptr`, so a failed `fopen()` for the output file was never
+    detected.
 
 - `betaMix()` is now 1.9–2.7× faster on typical datasets after profiling
   identified and eliminated four major bottlenecks in the EM loop:

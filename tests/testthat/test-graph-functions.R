@@ -156,6 +156,7 @@ test_that("collapsedGraph returns a symmetric Matrix", {
   if (max(ci$clustNo) > 0) {
     cg <- collapsedGraph(A, ci)
     expect_true(is(cg, "Matrix"))
-    expect_equal(as.matrix(cg), as.matrix(t(cg)))
+    cg_dense <- as.matrix(cg)
+    expect_equal(cg_dense, t(cg_dense))
   }
 })

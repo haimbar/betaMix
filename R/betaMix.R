@@ -80,7 +80,9 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
     corM <- cor(M)
     if(any(is.na(corM)))
       corM[is.na(corM)] <- 0
-    angleMat <- acos(corM)
+    # Store corM directly (not acos(corM)): getAdjMat uses (1 - corM^2) < ppthr
+    # instead of sin(acos(r))^2 — same value, eliminates P^2 trig calls.
+    angleMat <- corM
     # sin^2(arccos(r)) == 1 - r^2; avoids sin() on the lower triangle
     z_j <- pmin(1-calcAcc, pmax(calcAcc, 1 - corM[lower.tri(corM)]^2))
     z_jall <- c()
@@ -92,8 +94,10 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
       z_j <- sort(z_j)   # sort so findInterval() works below
     }
   }
-  tol <- max(tol, 1/length(z_j))
-  p0 <- min(sum(z_j > qbeta(0.1, etahat, 0.5)) / (0.9 * length(z_j)), 1)
+  tol  <- max(tol, 1/length(z_j))
+  # O(log n) initial p0: z_j is sorted so findInterval gives a binary search
+  thr0 <- qbeta(0.1, etahat, 0.5)
+  p0   <- min((length(z_j) - findInterval(thr0, z_j)) / (0.9 * length(z_j)), 1)
   if(msg) { cat("Fitting the model...\n") }
   # Precompute nonnull support once: z_j is sorted and bmax is constant
   nns     <- seq_len(findInterval(bmax, z_j))
@@ -102,41 +106,62 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
   inc    <- which(z_j_nns > 1e-6 & z_j_nns < 1 - 1e-6)
   log_z  <- log(z_j_nns[inc])
   log1mz <- log(1 - z_j_nns[inc])
-  # Initial E-step: m0 = 1 for z_j >= bmax (p1*f1 = 0 there by definition)
+  # Precompute null density once; stays constant when ind=TRUE (etahat fixed).
+  # When ind=FALSE it is refreshed after each successful eta update below.
+  # m0 is initialised here and only m0[nns] is ever updated — m0[-nns] == 1.
   m0 <- rep(1, length(z_j))
   if (length(nns) > 0) {
-    p0f0_n <- p0 * dbeta(z_j[nns], etahat, 0.5)
-    p1f1_n <- (1-p0) * dbeta(z_j_nns, ahat, bhat)
-    m0[nns] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
+    dbeta0_nns <- dbeta(z_j[nns], etahat, 0.5)
+    p0f0_n     <- p0 * dbeta0_nns
+    p1f1_n     <- (1-p0) * dbeta(z_j_nns, ahat, bhat)
+    m0[nns]    <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
   }
   p0new <- p0 - 10*tol
   cnt <- 0
   while (abs(p0-p0new) > tol && (cnt <- cnt+1) < mxcnt) {
     p0 <- p0new
-    if(!ind) {
-      etahat_new <- try(uniroot(etafun, c(1,(N-1)/2), z_j=z_j, m0=m0,
-                                lower=1, upper=(N-1)/2)$root, silent=TRUE)
+    if (!ind) {
+      # Precompute O(n) sums once; uniroot calls etafun ~10-50x per solve
+      sum_m0      <- sum(m0)
+      sum_m0_logz <- sum(m0 * log(z_j))
+      etahat_new  <- try(uniroot(etafun, c(1, (N-1)/2),
+                                 sum_m0 = sum_m0, sum_m0_logz = sum_m0_logz,
+                                 lower = 1, upper = (N-1)/2)$root, silent=TRUE)
       if (inherits(etahat_new, "try-error"))
         message("betaMix error when estimating eta:", etahat_new, "\n")
-      else
+      else {
         etahat <- etahat_new
+        # Refresh null density after successful eta update
+        if (length(nns) > 0)
+          dbeta0_nns <- dbeta(z_j[nns], etahat, 0.5)
+      }
     }
-    ests <- try(nleqslv(c(ahat, bhat), MLEfun, jac = jacmle,
-                        m_nns = m0[nns], inc = inc,
-                        log_z = log_z, log1mz = log1mz)$x, silent=TRUE)
-    if (inherits(ests, "try-error")) {
-      message("betaMix error when estimating a and b:", ests,"\n")
-    } else {
-      ahat <- min(max(ests[1], 0.5), 1000)
-      bhat <- min(max(ests[2], 0.5), 1000)
+    # M-step: precompute O(|nns|) quantities once per EM step so that
+    # nleqslv's ~7 evaluations of MLEfun/jacmle are O(1) scalar arithmetic.
+    m_nns_cur <- m0[nns]
+    sm_val    <- sum(1 - m_nns_cur)
+    if (!any(is.na(m_nns_cur)) && sm_val >= 1e-10) {
+      wt         <- 1 - m_nns_cur[inc]
+      swt_logz   <- sum(wt * log_z)
+      swt_log1mz <- sum(wt * log1mz)
+      ests <- try(nleqslv(c(ahat, bhat), MLEfun, jac = jacmle,
+                          sm_val = sm_val, swt_logz = swt_logz,
+                          swt_log1mz = swt_log1mz)$x, silent=TRUE)
+      if (inherits(ests, "try-error")) {
+        message("betaMix error when estimating a and b:", ests, "\n")
+      } else {
+        ahat <- min(max(ests[1], 0.5), 1000)
+        bhat <- min(max(ests[2], 0.5), 1000)
+      }
     }
-    m0 <- rep(1, length(z_j))
+    # E-step: reuse precomputed dbeta0_nns; m0[-nns] stays 1 (no NA possible)
     if (length(nns) > 0) {
-      p0f0_n <- p0 * dbeta(z_j[nns], etahat, 0.5)
-      p1f1_n <- (1-p0) * dbeta(z_j_nns, ahat, bhat)
+      p0f0_n  <- p0 * dbeta0_nns
+      p1f1_n  <- (1-p0) * dbeta(z_j_nns, ahat, bhat)
       m0[nns] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
     }
-    p0new <- mean(m0, na.rm=TRUE)
+    # O(|nns|) mean: m0[-nns] == 1 always, no NA after pmax/pmin
+    p0new <- (sum(m0[nns]) + length(z_j) - length(nns)) / length(z_j)
   }
   if (!is.null(dbname)) {
     ppthr <- qbeta(maxalpha, etahat, 0.5)
@@ -211,7 +236,7 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
       } else {
         Atmp <- Matrix(res$angleMat[nodes,])
       }
-      nbrs <- which(colSums(sin(Atmp)^2 < ppthr) > 0)
+      nbrs <- which(colSums((1 - Atmp^2) < ppthr) > 0)
       # if (length(setdiff(nbrs,nodes)) == 0) {
       #   cat("No additional neighbors found.\n")
       # }
@@ -220,9 +245,10 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
     } else {
       angMat <- res$angleMat
     }
-    A <- sin(angMat)^2 < ppthr
+    # angleMat now holds corM; sin(acos(r))^2 == 1-r^2, acos(r)>pi/2 == r<0
+    A <- (1 - angMat^2) < ppthr
     if(signed){
-      negedges <- intersect(which(A > 0), which(angMat > pi/2))
+      negedges <- intersect(which(A > 0), which(angMat < 0))
       if (length(negedges) > 0)
         A[negedges] <- -1
     }
@@ -267,32 +293,36 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
 
 # the Jacobian, to speed up the MLE calculation of a and b in the non-null
 # component.
-jacmle <- function(par, m_nns, inc, log_z, log1mz) {
-  a <- par[1]
-  b <- par[2]
-  # Jacobian depends only on sum(m_nns - 1) and trigamma values at (a, b)
-  sum(m_nns - 1) * matrix(c(trigamma(a+b) - trigamma(a), trigamma(a+b),
-                             trigamma(a+b), trigamma(a+b) - trigamma(b)), 2, 2)
+# sm_val: sum(1 - m0[nns]) — precomputed before nleqslv so it is not
+# recomputed on each of nleqslv's ~7 function evaluations per EM step.
+# '...' absorbs the swt_logz / swt_log1mz scalars forwarded by nleqslv.
+jacmle <- function(par, sm_val, ...) {
+  a   <- par[1]
+  b   <- par[2]
+  tab <- trigamma(a + b)          # computed once; used three times below
+  sm_val * matrix(c(tab - trigamma(a), tab,
+                    tab, tab - trigamma(b)), 2, 2)
 }
 
 
 # The maximum likelihood estimation of a,b of the nonnull component.
 # nu (eta = (nu-1)/2) is estimated separately.
-MLEfun <- function(par, m_nns, inc, log_z, log1mz) {
-  sm <- sum(1 - m_nns)
-  if (any(is.na(m_nns)) || sm < 1e-10)
-    return(c(1, 1))
-  a     <- par[1]
-  b     <- par[2]
-  m_int <- m_nns[inc]
-  c(sm * (digamma(a) - digamma(a + b)) - sum((1 - m_int) * log_z),
-    sm * (digamma(b) - digamma(a + b)) - sum((1 - m_int) * log1mz))
+# All O(|nns|) sums are precomputed once before each nleqslv call and passed
+# as scalars, so MLEfun is pure scalar arithmetic (~7x fewer vector ops/step).
+MLEfun <- function(par, sm_val, swt_logz, swt_log1mz) {
+  a   <- par[1]
+  b   <- par[2]
+  dab <- digamma(a + b)           # computed once; used twice below
+  c(sm_val * (digamma(a) - dab) - swt_logz,
+    sm_val * (digamma(b) - dab) - swt_log1mz)
 }
 
 
 # The maximum likelihood estimation of the null parameter (if samples are dependent).
-etafun <- function(eta, z_j, m0) {
-  return(-(digamma(eta) - digamma(eta+0.5))*sum(m0) + sum(m0*log(z_j)))
+# sum_m0 and sum_m0_logz are O(n) sums that are constant within a uniroot solve;
+# precomputing them before uniroot avoids recomputing them on each evaluation.
+etafun <- function(eta, sum_m0, sum_m0_logz) {
+  -(digamma(eta) - digamma(eta + 0.5)) * sum_m0 + sum_m0_logz
 }
 
 
