@@ -1,0 +1,14 @@
+bibentry(
+  bibtype  = "Article",
+  title    = "On graphical models and convex geometry",
+  author   = c(
+    person("Haim",  "Bar"),
+    person("M. T.", "Wells")
+  ),
+  journal  = "Computational Statistics & Data Analysis",
+  year     = "2023",
+  volume   = "187",
+  pages    = "107800",
+  doi      = "10.1016/j.csda.2023.107800",
+  url      = "https://doi.org/10.1016/j.csda.2023.107800"
+)
