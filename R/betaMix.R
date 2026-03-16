@@ -17,7 +17,9 @@ NULL
 #' @param ahat The initial value for the first parameter of the nonnull beta distribution (default=8).
 #' @param bhat The initial value for the second parameter of the nonnull beta distribution (default=3).
 #' @param bmax The RHS of the support of the non-null component (default=0.999)
-#' @param subsamplesize If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=50000).
+#' @param subsamplesize If at least 20000 and the number of pairs exceeds this
+#'   value, take a random sample of this size to fit the model. Otherwise, use
+#'   all the data (default=50000).
 #' @param seed The random seed to use if selecting a subset with the subsamplesize parameter (default=912469).
 #' @param ind Whether the N samples should be assumed to be independent (default=TRUE).
 #' @param msg Whether to print intermediate output messages (default=TRUE).
@@ -25,15 +27,15 @@ NULL
 #' \itemize{
 #' \item{angleMat} {A PxP matrix with angles between pairs of vectors. If the correlation data is stored in SQLite, then the returned value is database name.}
 #' \item{z_j} {The statistics z_j=sin^2(angles).}
-#' \item{m_0} {The posterior null probabilities.}
-#' \item{p_0} {The estimated probability of the null component.}
+#' \item{m0} {The posterior null probabilities.}
+#' \item{p0} {The estimated probability of the null component.}
 #' \item{ahat} {The estimated first parameter of the nonnull beta component.}
 #' \item{bhat} {The estimated second parameter of the nonnull beta component.}
 #' \item{N} {The sample size.}
 #' \item{etahat} {If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
 #' \item{bmax} {The user-defined right-hand side of the support of the non-null component.}
 #' \item{ppthr} {The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
-#' \item{P} {The number of nodes.}
+#' \item{nodes} {The number of nodes.}
 #' \item{edges} {The number of edges found.}
 #' \item{cnt} {The number of EM iterations.}
 #' }
@@ -82,7 +84,7 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
     z_j <- pmin(1-calcAcc, 
                 pmax(calcAcc, (sin(angleMat[which(lower.tri(angleMat))]))^2))
     z_jall <- c()
-    if ((length(z_j) > subsamplesize) & (subsamplesize >= 20000)) {
+    if ((length(z_j) > subsamplesize) && (subsamplesize >= 20000)) {
       z_jall <- z_j
       set.seed(seed)
       z_j <- sort(z_j[sample(length(z_j), subsamplesize)])
@@ -156,10 +158,14 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
 }
 
 
-#' Get the adjacency matrix if the pairwise correlation data is stored in a SQL database.
-#' 
-#' SQL storage should be used if P is large and the calculating and storing the correlation matrix will require too much memory.
-#' @param res The returned value from the betaMix function if the correlation matrix is strored in memory.
+#' Get the adjacency matrix from a fitted betaMix model.
+#'
+#' Works for both in-memory correlation matrices and SQLite-backed storage.
+#' SQLite storage should be used if P is large and calculating and storing the
+#' full correlation matrix would require too much memory.
+#' @param res The object returned by betaMix(). Always required: used to obtain
+#'   the posterior probability threshold and node count regardless of whether
+#'   the correlation data is in memory or in a database.
 #' @param dbname The sqlite database with the pairwise correlations, if the data is not stored in memory (for very large P). Default=NULL.
 #' @param ppthr A threshold to select edges. Default=NULL, in which case the returned value from betaMix() is used (available in res).
 #' @param signed If TRUE, the returned matrix will contain -1 for negatively correlated pairs. Otherwise, all correlated pairs will have 1 in the returned matrix (Default).
@@ -310,7 +316,9 @@ plotFittedBetaMix <- function(betaMixObj, yLim=5) {
 
 #' Print a short summary of the fitted mixture model.
 #'
-#' Show the number of nodes, the number of possible and detected edges, the estimated proportion of uncorrelated pairs.
+#' Prints the estimated model parameters (ahat, bhat, etahat), the posterior
+#' probability threshold, sample size, node count, maximum possible edges,
+#' detected edges, and estimated null proportion p0.
 #' @param betamixobj The object (list) returned from the betaMix function.
 #' @export
 #' @examples
@@ -336,7 +344,9 @@ shortSummary <- function(betamixobj) {
 
 #' Find spherical caps with more than one node.
 #'
-#' Takes a PxP adjacency Matrix as input and find apherical caps with more than one node in R^n. Cap centers can only appear in one cap, but other nodes are allowed to appear in multiple caps.
+#' Takes a PxP adjacency Matrix as input and find spherical caps with more than
+#' one node in R^n. Cap centers can only appear in one cap, but other nodes are
+#' allowed to appear in multiple caps.
 #' @param A An adjacency Matrix(0/1), zeros on the main diagonal.
 #' @return A data frame with the following columns:
 #' \itemize{
@@ -399,7 +409,9 @@ sphericalCaps <- function(A) {
 #' Take an adjacency Matrix as input and find clusters. For each node, find the degree and clustering coefficient (CC). Then, calculate a centrality measure (type\*CC+1)\*deg. For type=0, it's just the degree. Note that setting type=1 means that we assign a higher value to nodes that not only have many neighbors, but the neighbors are highly interconnected. For example, suppose we have two components with k nodes, one has a star shape, and the other is a complete graph. With type=0 both graphs will get the same value, but with type=1 the complete graph will be picked by the algorithm first. Setting type to a negative value gives CC\*deg as the centrality measure.
 #' @param A An adjacency Matrix(0/1).
 #' @param minCtr The minimum centrality value to be considered for a cluster center (default=5).
-#' @param type Determines how the centrality measure is computed.
+#' @param type Determines how the centrality measure is computed: positive
+#'   values use (type*CC+1)*deg; negative values use CC*deg; 0 gives plain
+#'   degree.
 #' @return A data frame with the following columns:
 #' \itemize{
 #'  \item{labels} {Node label (e.g. gene names).}
@@ -590,7 +602,10 @@ clusteringCoef <- function(A) {
 
 #' Plot the degree of nodes versus the degree times the clustering coefficient.
 #'
-#' The x-axis represents the number of neighbors of each node, and the y-axis represents the proportion of neighbors which are connected to each other.
+#' The x-axis represents node degree (number of neighbors). The y-axis
+#' represents degree multiplied by the clustering coefficient (CC*degree), a
+#' centrality-like measure that weights high-degree nodes by how interconnected
+#' their neighborhood is.
 #' @param betamixobj The object (list) returned by betaMix
 #' @param clusterInfo obtained from graphComponents. If not provided by the user, it will be computed on the fly.
 #' @param highlightNodes A vector of node-numbers which will be shown in red. Default is NULL.
@@ -662,7 +677,10 @@ plotBitmapCC <- function(AdjMat, clusterInfo=NULL, orderByCluster=FALSE, showMin
 #' @param nodecol The color(s) of the nodes. Can be a single value or a vector of length equal to the number of rows in AdjMat
 #' @param labelsize Text size of node labels.
 #' @param figtitle The title of the plot (default=NULL).
-#' @param edgecols The colors to be used for edges. Default="grey88". If one value is given, all edges will be drawn using this color. If edgecol contains two valid colors, the first is used for positive correlations, and the second for negative ones.
+#' @param edgecols The colors to be used for edges. Default="grey88". If one
+#'   value is given, all edges will be drawn using this color. If edgecols
+#'   contains two valid colors, the first is used for positive correlations and
+#'   the second for negative ones.
 #' @export
 #' @importFrom grDevices col2rgb colours rgb
 #' @examples
@@ -724,12 +742,13 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo=NULL, labels=FALSE, nodecol
 }
 
 
-#' Return a Matrix with the shortest path distance between nodes (check up to numSteps.)
+#' Return a Matrix with the shortest path distance between nodes.
 #'
-#' return the adjacency matrix of expMat connecting neighbors up to numSteps away.
+#' Returns a matrix whose entry (i,j) is the minimum number of steps from node
+#' i to node j, considering paths up to numSteps edges long.
 #' @param AdjMat An adjacency Matrix (0/1).
 #' @param numSteps The maximum number of edges between pairs of nodes. If numSteps=0, returns the input matrix. numSteps=1 adds neighbors of direct neighbors, etc.
-#' @return A Matrix containing the shortset paths between nodes i and j
+#' @return A Matrix containing the shortest path lengths between nodes i and j
 #' @export
 #' @examples
 #' \dontrun{
