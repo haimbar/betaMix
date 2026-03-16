@@ -79,49 +79,63 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
     etahat <- (N-1)/2
     corM <- cor(M)
     if(any(is.na(corM)))
-      corM[which(is.na(corM))] <- 0
+      corM[is.na(corM)] <- 0
     angleMat <- acos(corM)
-    z_j <- pmin(1-calcAcc, 
-                pmax(calcAcc, (sin(angleMat[which(lower.tri(angleMat))]))^2))
+    # sin^2(arccos(r)) == 1 - r^2; avoids sin() on the lower triangle
+    z_j <- pmin(1-calcAcc, pmax(calcAcc, 1 - corM[lower.tri(corM)]^2))
     z_jall <- c()
     if ((length(z_j) > subsamplesize) && (subsamplesize >= 20000)) {
-      z_jall <- z_j
+      z_jall <- sort(z_j)
       set.seed(seed)
       z_j <- sort(z_j[sample(length(z_j), subsamplesize)])
+    } else {
+      z_j <- sort(z_j)   # sort so findInterval() works below
     }
   }
   tol <- max(tol, 1/length(z_j))
-  p0 <- min(length(which(z_j > qbeta(0.1, etahat, 0.5)))/(0.9*length(z_j)), 1)
+  p0 <- min(sum(z_j > qbeta(0.1, etahat, 0.5)) / (0.9 * length(z_j)), 1)
   if(msg) { cat("Fitting the model...\n") }
-  inNonNullSupport <- which(z_j < bmax)
-  p0f0 <- p0*dbeta(z_j, etahat, 0.5)
-  p1f1 <- rep(0,length(z_j))
-  p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/bmax, ahat, bhat)
-  m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
+  # Precompute nonnull support once: z_j is sorted and bmax is constant
+  nns     <- seq_len(findInterval(bmax, z_j))
+  z_j_nns <- z_j[nns] / bmax
+  # Interior mask and log values for MLEfun — also constant throughout EM
+  inc    <- which(z_j_nns > 1e-6 & z_j_nns < 1 - 1e-6)
+  log_z  <- log(z_j_nns[inc])
+  log1mz <- log(1 - z_j_nns[inc])
+  # Initial E-step: m0 = 1 for z_j >= bmax (p1*f1 = 0 there by definition)
+  m0 <- rep(1, length(z_j))
+  if (length(nns) > 0) {
+    p0f0_n <- p0 * dbeta(z_j[nns], etahat, 0.5)
+    p1f1_n <- (1-p0) * dbeta(z_j_nns, ahat, bhat)
+    m0[nns] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
+  }
   p0new <- p0 - 10*tol
   cnt <- 0
   while (abs(p0-p0new) > tol && (cnt <- cnt+1) < mxcnt) {
     p0 <- p0new
     if(!ind) {
-      etahat <- try(uniroot(etafun, c(1,(N-1)/2), z_j=z_j, m0=m0,
-                            lower=1, upper=(N-1)/2)$root, silent=TRUE)
-      if (inherits(etahat, "try-error"))
-        message("betaMix error when estimating eta:", etahat,"\n")
+      etahat_new <- try(uniroot(etafun, c(1,(N-1)/2), z_j=z_j, m0=m0,
+                                lower=1, upper=(N-1)/2)$root, silent=TRUE)
+      if (inherits(etahat_new, "try-error"))
+        message("betaMix error when estimating eta:", etahat_new, "\n")
+      else
+        etahat <- etahat_new
     }
-    ests <- try(nleqslv(c(ahat, bhat), MLEfun, jac=jacmle,
-                        z_j0=z_j, m=m0, xmax=bmax)$x, silent=TRUE)
+    ests <- try(nleqslv(c(ahat, bhat), MLEfun, jac = jacmle,
+                        m_nns = m0[nns], inc = inc,
+                        log_z = log_z, log1mz = log1mz)$x, silent=TRUE)
     if (inherits(ests, "try-error")) {
       message("betaMix error when estimating a and b:", ests,"\n")
     } else {
       ahat <- min(max(ests[1], 0.5), 1000)
       bhat <- min(max(ests[2], 0.5), 1000)
     }
-    inNonNullSupport <- which(z_j < bmax)
-    p0f0 <- p0*dbeta(z_j, etahat, 0.5)
-    p1f1 <- rep(0, length(z_j))
-    if (length(inNonNullSupport) > 0)
-      p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/bmax, ahat, bhat)
-    m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
+    m0 <- rep(1, length(z_j))
+    if (length(nns) > 0) {
+      p0f0_n <- p0 * dbeta(z_j[nns], etahat, 0.5)
+      p1f1_n <- (1-p0) * dbeta(z_j_nns, ahat, bhat)
+      m0[nns] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
+    }
     p0new <- mean(m0, na.rm=TRUE)
   }
   if (!is.null(dbname)) {
@@ -135,15 +149,19 @@ betaMix <- function(M, dbname=NULL, tol=1e-4, calcAcc=1e-9, maxalpha=1e-4,
     edges <- nrow(selected)
     dbClearResult(res)
     dbDisconnect(con)
-  } else{ 
+  } else {
     if (length(z_jall) > subsamplesize) {
       z_j <- z_jall
     }
-    inNonNullSupport <- which(z_j < bmax)
-    p0f0 <- p0*dbeta(z_j, etahat, 0.5)
-    p1f1 <- rep(0,length(z_j))
-    p1f1[inNonNullSupport] <- (1-p0)*dbeta(z_j[inNonNullSupport]/bmax,ahat,bhat)
-    m0 <- pmax(0, pmin(1, p0f0/(p0f0+p1f1)))
+    # Final E-step on the full z_j (recompute nns since z_j may have expanded)
+    nns_f   <- seq_len(findInterval(bmax, z_j))
+    m0 <- rep(1, length(z_j))
+    if (length(nns_f) > 0) {
+      z_j_nns_f <- z_j[nns_f] / bmax
+      p0f0_n <- p0 * dbeta(z_j[nns_f], etahat, 0.5)
+      p1f1_n <- (1-p0) * dbeta(z_j_nns_f, ahat, bhat)
+      m0[nns_f] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
+    }
     p0 <- mean(m0)
     ppthr <- qbeta(maxalpha, etahat, 0.5)
     critPP <- which(m0 < ppr)
@@ -249,38 +267,26 @@ getAdjMat <- function(res, dbname=NULL, ppthr=NULL, signed=FALSE, nodes=NULL) {
 
 # the Jacobian, to speed up the MLE calculation of a and b in the non-null
 # component.
-jacmle <- function(par, z_j0, m, xmax) {
-  m <- m[which(z_j0 < xmax)]
-  z_j0 <- z_j0[which(z_j0 < xmax)]
-  z_j0 <- z_j0/xmax
+jacmle <- function(par, m_nns, inc, log_z, log1mz) {
   a <- par[1]
   b <- par[2]
-  sum(m-1)*matrix(c(trigamma(a+b)-trigamma(a), trigamma(a+b),
-                    trigamma(a+b), trigamma(a+b)-trigamma(b)),2,2)
+  # Jacobian depends only on sum(m_nns - 1) and trigamma values at (a, b)
+  sum(m_nns - 1) * matrix(c(trigamma(a+b) - trigamma(a), trigamma(a+b),
+                             trigamma(a+b), trigamma(a+b) - trigamma(b)), 2, 2)
 }
 
 
 # The maximum likelihood estimation of a,b of the nonnull component.
 # nu (eta = (nu-1)/2) is estimated separately.
-MLEfun <- function(par, z_j0, m, xmax) {
-  m <- m[which(z_j0 < xmax)]
-  z_j0 <- z_j0[which(z_j0 < xmax)]
-  z_j0 <- z_j0/xmax
-  y <- numeric(2)
-  y[1] <- y[2] <- 1
-  sm <- sum(1-m)
-  if(any(is.na(m)))
-    return(y)
-  if (sm < 1e-10)
-    return(y)
-  inc <- intersect(which(z_j0 > 1e-6),which(z_j0 < 1-1e-6))
-  m <- m[inc]
-  z_j0 <- z_j0[inc]
-  a <- par[1]
-  b <- par[2]
-  y[1] <- sm*(digamma(a)-digamma(a+b)) - sum((1-m)*log(z_j0))
-  y[2] <- sm*(digamma(b)-digamma(a+b)) - sum((1-m)*log(1-z_j0))
-  y  
+MLEfun <- function(par, m_nns, inc, log_z, log1mz) {
+  sm <- sum(1 - m_nns)
+  if (any(is.na(m_nns)) || sm < 1e-10)
+    return(c(1, 1))
+  a     <- par[1]
+  b     <- par[2]
+  m_int <- m_nns[inc]
+  c(sm * (digamma(a) - digamma(a + b)) - sum((1 - m_int) * log_z),
+    sm * (digamma(b) - digamma(a + b)) - sum((1 - m_int) * log1mz))
 }
 
 
