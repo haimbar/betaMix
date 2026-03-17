@@ -1,46 +1,36 @@
-# betaMix 0.2.16
+# betaMix 0.3.0
 
 ## New features
 
-- `plotROC()`: new exported function that computes and plots a model-based ROC
-  curve by sweeping the edge-detection threshold τ from 0 to 1.  FPR and TPR
-  are derived directly from the fitted Beta distributions — no ground-truth
-  labels are required.  Returns AUC, the Youden-index optimal threshold
-  (`tau_youden`), and the full (fpr, tpr, tau) grid so the user can apply any
-  operating point via `getAdjMat(res, ppthr = roc$tau_youden)`.
-- `betaMixReport()`: added ROC curve section ("ROC Curve and Threshold
-  Selection") after the model fit assessment, showing the current threshold
-  (orange), Youden optimum (red), and the FPR at the non-null support boundary
-  (grey dotted line).
-- Vignette: added "Model-based ROC curve" subsection documenting `plotROC()`.
-
----
-
-# betaMix 0.2.15
-
-## New features
-
-- `assessFit()`: new exported function that produces a 2×2 diagnostic plot and
-  a printed goodness-of-fit assessment for a fitted betaMix model.
+- `assessFit()`: new exported function producing a 2×2 goodness-of-fit
+  diagnostic plot and a printed assessment for a fitted betaMix model.
   - Panel 1: fitted mixture histogram (`plotFittedBetaMix`).
   - Panel 2: Q-Q plot of null-assigned observations (m0 ≥ 0.5) vs
-    Beta(η̂, 0.5); points are blue when KS D ≤ 0.05, red otherwise.
+    Beta(η̂, 0.5); points are blue when KS D ≤ 0.05, red when D > 0.05.
   - Panel 3: Q-Q plot of non-null-assigned observations (m0 < 0.5, scaled by
     bmax) vs Beta(â, b̂).
   - Panel 4: kernel density of non-null z_j overlaid with the fitted Beta
-    density; orange dotted lines mark additional modes when the non-null
-    component is multimodal.
-  - Verbal summary covers: KS D statistics for both components, multimodality
-    (local density peaks ≥ 10 % of max), heavy left-tail concentration, and
-    extreme p0 values. Overall verdict is one of "Good fit", "Acceptable fit",
-    or "Deviations detected".
-  - Practical deviation threshold: KS D > 0.05 (not the raw p-value, which is
-    unreliable for large numbers of pairs).
-- `betaMixReport()`: the "Fitted Mixture Model" section is replaced by a
-  "Model Fit Assessment" section that renders the `assessFit()` 2×2 panel
-  (7 × 7 in) together with the printed goodness-of-fit verdict.
-- Vignette: added "Goodness-of-fit assessment" section documenting
-  `assessFit()` and its four panels.
+    density; orange dotted lines mark extra modes when multimodal.
+  - Printed assessment covers KS D for both components, mode count, heavy
+    left-tail flag, no-signal flag, and an overall verdict ("Good fit",
+    "Acceptable fit", or "Deviations detected"). Contextual hints suggest
+    `ind = FALSE` on null deviation and warn of multimodality on non-null
+    deviation.
+  - Uses KS D > 0.05 as the practical threshold (raw p-values are unreliable
+    for large numbers of pairs).
+- `plotROC()`: new exported function that computes and plots a model-based ROC
+  curve by sweeping the edge-detection threshold τ from 0 to 1.  FPR and TPR
+  are derived directly from the fitted Beta distributions — no ground-truth
+  labels are required.  Marks the current threshold (orange) and the
+  Youden-index optimum (red); returns AUC and `tau_youden` for downstream use
+  via `getAdjMat(res, ppthr = roc$tau_youden)`.
+- `betaMixReport()`: the single fitted-mixture plot is replaced by a "Model
+  Fit Assessment" section (`assessFit()`, 7 × 7 in) followed by a "ROC Curve
+  and Threshold Selection" section (`plotROC()`, 4.5 × 4.5 in).
+- `betaMixReport()`: added `betaMixReport()` function (introduced in 0.2.11)
+  for generating self-contained PDF reports.
+- Vignette: added "Goodness-of-fit assessment" and "Model-based ROC curve"
+  sections documenting the new functions.
 
 ---
 
