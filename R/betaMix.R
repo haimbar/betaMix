@@ -47,7 +47,7 @@ NULL
 #' @seealso \code{\link{betaMix-package}} for a package overview;
 #'   \code{help(package = "betaMix")} to browse the full function and dataset index.
 #' @export
-#' @import DBI stats nleqslv
+#' @import stats nleqslv
 #' @importFrom stats cor dbeta pbeta qbeta optimize
 #' @examples
 #' \dontrun{
@@ -66,24 +66,28 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
     stop("betaMix: 'calcAcc' must be a single number in (0, 0.5); got calcAcc = ", calcAcc)
   if (msg) cat("Generating the z_ij statistics...\n")
   if (!is.null(dbname)) {
+    if (!requireNamespace("DBI",     quietly = TRUE) ||
+        !requireNamespace("RSQLite", quietly = TRUE))
+      stop("Packages 'DBI' and 'RSQLite' are required for the SQLite path. ",
+           "Install them with: install.packages(c(\"DBI\", \"RSQLite\"))")
     if (!file.exists(dbname)) {
       message(paste("SQLite database", dbname, "not found!\n"))
       return(NULL)
     }
-    con <- dbConnect(RSQLite::SQLite(), dbname)
-    res <- dbSendQuery(con, "SELECT * FROM metadata")
-    metadata <- dbFetch(res)
-    dbClearResult(res)
+    con <- DBI::dbConnect(RSQLite::SQLite(), dbname)
+    res <- DBI::dbSendQuery(con, "SELECT * FROM metadata")
+    metadata <- DBI::dbFetch(res)
+    DBI::dbClearResult(res)
     P <- metadata$p
     N <- metadata$n
     etahat <- (N - 1) / 2
     if (subsamplesize < 20000) {
-      res <- dbSendQuery(con, sprintf("SELECT * FROM correlations"))
+      res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations"))
     } else {
-      res <- dbSendQuery(con, sprintf("SELECT * FROM correlations ORDER BY random() LIMIT %d", subsamplesize))
+      res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations ORDER BY random() LIMIT %d", subsamplesize))
     }
-    subtable <- dbFetch(res)
-    dbClearResult(res)
+    subtable <- DBI::dbFetch(res)
+    DBI::dbClearResult(res)
     z_j <- sort(pmin(1 - calcAcc, pmax(calcAcc, subtable$zij)))
     angleMat <- dbname
   } else {
@@ -199,11 +203,11 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
       ppthr <- max(z_j[critPP])
     }
     p0 <- mean(m0)
-    res <- dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE zij < %f", ppthr))
-    selected <- dbFetch(res)
+    res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE zij < %f", ppthr))
+    selected <- DBI::dbFetch(res)
     edges <- nrow(selected)
-    dbClearResult(res)
-    dbDisconnect(con)
+    DBI::dbClearResult(res)
+    DBI::dbDisconnect(con)
   } else {
     if (length(z_jall) > subsamplesize) {
       z_j <- z_jall
@@ -292,29 +296,33 @@ getAdjMat <- function(res, dbname = NULL, ppthr = NULL, signed = FALSE, nodes = 
     diag(A) <- FALSE
     return(Matrix::Matrix(A))
   }
+  if (!requireNamespace("DBI",     quietly = TRUE) ||
+      !requireNamespace("RSQLite", quietly = TRUE))
+    stop("Packages 'DBI' and 'RSQLite' are required for the SQLite path. ",
+         "Install them with: install.packages(c(\"DBI\", \"RSQLite\"))")
   if (!file.exists(dbname)) {
     message(paste("SQLite database", dbname, "not found!\n"))
     return(NULL)
   }
-  con <- dbConnect(RSQLite::SQLite(), dbname)
-  res <- dbSendQuery(con, "SELECT * FROM metadata")
-  metadata <- dbFetch(res)
-  dbClearResult(res)
+  con <- DBI::dbConnect(RSQLite::SQLite(), dbname)
+  res <- DBI::dbSendQuery(con, "SELECT * FROM metadata")
+  metadata <- DBI::dbFetch(res)
+  DBI::dbClearResult(res)
   P <- metadata$p
-  res <- dbSendQuery(con, "select name from predictors")
-  pnames <- unlist(dbFetch(res))
-  dbClearResult(res)
+  res <- DBI::dbSendQuery(con, "select name from predictors")
+  pnames <- unlist(DBI::dbFetch(res))
+  DBI::dbClearResult(res)
   A <- Matrix::Matrix(FALSE, P, P)
   colnames(A) <- pnames
   if (is.null(nodes)) {
-    res <- dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE zij < %f", ppthr))
+    res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE zij < %f", ppthr))
   } else {
     sset <- paste(nodes, collapse = ",")
-    res <- dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE (node1 IN (%s) OR node2 IN (%s)) AND zij < %f", sset, sset, ppthr))
+    res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE (node1 IN (%s) OR node2 IN (%s)) AND zij < %f", sset, sset, ppthr))
   }
-  selected <- dbFetch(res)
-  dbClearResult(res)
-  dbDisconnect(con)
+  selected <- DBI::dbFetch(res)
+  DBI::dbClearResult(res)
+  DBI::dbDisconnect(con)
   if (nrow(selected) == 0) {
     message("Zero rows selected.\n")
     return(NULL)
