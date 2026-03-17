@@ -101,7 +101,7 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
       corM[is.na(corM)] <- 0
     }
     # Store corM directly (not acos(corM)): getAdjMat uses (1 - corM^2) < ppthr
-    # instead of sin(acos(r))^2 — same value, eliminates P^2 trig calls.
+    # instead of sin(acos(r))^2 -- same value, eliminates P^2 trig calls.
     angleMat <- corM
     # sin^2(arccos(r)) == 1 - r^2; avoids sin() on the lower triangle
     z_j <- pmin(1 - calcAcc, pmax(calcAcc, 1 - corM[lower.tri(corM)]^2))
@@ -122,13 +122,13 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
   # Precompute nonnull support once: z_j is sorted and bmax is constant
   nns <- seq_len(findInterval(bmax, z_j))
   z_j_nns <- z_j[nns] / bmax
-  # Interior mask and log values for MLEfun — also constant throughout EM
+  # Interior mask and log values for MLEfun -- also constant throughout EM
   inc <- which(z_j_nns > 1e-6 & z_j_nns < 1 - 1e-6)
   log_z <- log(z_j_nns[inc])
   log1mz <- log(1 - z_j_nns[inc])
   # Precompute null density once; stays constant when ind=TRUE (etahat fixed).
   # When ind=FALSE it is refreshed after each successful eta update below.
-  # m0 is initialised here and only m0[nns] is ever updated — m0[-nns] == 1.
+  # m0 is initialised here and only m0[nns] is ever updated -- m0[-nns] == 1.
   m0 <- rep(1, length(z_j))
   if (length(nns) > 0) {
     dbeta0_nns <- dbeta(z_j[nns], etahat, 0.5)
@@ -328,7 +328,7 @@ getAdjMat <- function(res, dbname = NULL, ppthr = NULL, signed = FALSE, nodes = 
 
 # the Jacobian, to speed up the MLE calculation of a and b in the non-null
 # component.
-# sm_val: sum(1 - m0[nns]) — precomputed before nleqslv so it is not
+# sm_val: sum(1 - m0[nns]) -- precomputed before nleqslv so it is not
 # recomputed on each of nleqslv's ~7 function evaluations per EM step.
 # '...' absorbs the swt_logz / swt_log1mz scalars forwarded by nleqslv.
 jacmle <- function(par, sm_val, ...) {
@@ -385,8 +385,8 @@ etafun <- function(eta, sum_m0, sum_m0_logz) {
 #'
 #' Two reference thresholds are marked:
 #' \itemize{
-#'   \item \strong{Orange} — the current \code{ppthr} from \code{\link{betaMix}}.
-#'   \item \strong{Red} — the Youden-index optimum,
+#'   \item \strong{Orange} -- the current \code{ppthr} from \code{\link{betaMix}}.
+#'   \item \strong{Red} -- the Youden-index optimum,
 #'     \eqn{\tau^* = \arg\max_\tau [\text{TPR}(\tau) - \text{FPR}(\tau)]},
 #'     which maximises the sum of sensitivity and specificity.
 #' }
@@ -666,13 +666,13 @@ plotFittedBetaMix <- function(betaMixObj, yLim = 5) {
 assessFit <- function(betaMixObj, yLim = 5, qq_purity = 0.9) {
   with(betaMixObj, {
 
-    ## ── Hard assignment ───────────────────────────────────────────────────────
+    ## -- Hard assignment -------------------------------------------------------
     null_idx    <- which(m0 >= 0.5)
     nonnull_idx <- which(m0 <  0.5)
     n_null      <- length(null_idx)
     n_nonnull   <- length(nonnull_idx)
 
-    ## ── KS test: null component ───────────────────────────────────────────────
+    ## -- KS test: null component -----------------------------------------------
     ks_null <- NULL
     if (n_null >= 2) {
       ks_null <- ks.test(z_j[null_idx], "pbeta", etahat, 0.5)
@@ -680,7 +680,7 @@ assessFit <- function(betaMixObj, yLim = 5, qq_purity = 0.9) {
       warning("assessFit: fewer than 2 null-assigned observations; null KS test skipped.")
     }
 
-    ## ── KS test: non-null component ───────────────────────────────────────────
+    ## -- KS test: non-null component -------------------------------------------
     z_nn_raw <- if (n_nonnull > 0) z_j[nonnull_idx] / bmax else numeric(0)
     z_nn     <- z_nn_raw[z_nn_raw > 1e-6 & z_nn_raw < 1 - 1e-6]
     ks_nonnull <- NULL
@@ -691,7 +691,7 @@ assessFit <- function(betaMixObj, yLim = 5, qq_purity = 0.9) {
               "non-null KS test skipped.")
     }
 
-    ## ── High-purity subsets for conditional Q-Q plots ─────────────────────────
+    ## -- High-purity subsets for conditional Q-Q plots -------------------------
     # Pure-null: observations firmly in the null (upper) tail, away from the
     # non-null overlap.  Pure-non-null: observations firmly in the non-null
     # (lower) tail, away from the null overlap.
@@ -731,7 +731,7 @@ assessFit <- function(betaMixObj, yLim = 5, qq_purity = 0.9) {
       }
     }
 
-    ## ── Multimodality in non-null ─────────────────────────────────────────────
+    ## -- Multimodality in non-null ---------------------------------------------
     dens_nn         <- NULL
     n_modes         <- NA_integer_
     peaks_above_thr <- integer(0)
@@ -748,11 +748,11 @@ assessFit <- function(betaMixObj, yLim = 5, qq_purity = 0.9) {
       n_modes         <- length(peaks_above_thr)
     }
 
-    ## ── Heavy left tail ───────────────────────────────────────────────────────
+    ## -- Heavy left tail -------------------------------------------------------
     left_tail_frac  <- if (n_nonnull > 0) mean(z_j[nonnull_idx] < 0.05) else 0
     heavy_left_tail <- left_tail_frac > 0.20
 
-    ## ── Deviation flags ───────────────────────────────────────────────────────
+    ## -- Deviation flags -------------------------------------------------------
     null_D    <- if (!is.null(ks_null))    unname(ks_null$statistic)    else NA_real_
     nonnull_D <- if (!is.null(ks_nonnull)) unname(ks_nonnull$statistic) else NA_real_
     null_dev    <- !is.na(null_D)    && null_D    > 0.05
@@ -766,7 +766,7 @@ assessFit <- function(betaMixObj, yLim = 5, qq_purity = 0.9) {
                   if (n_issues == 1) "Acceptable fit" else
                   "Deviations detected"
 
-    ## ── 2x2 plot panel ────────────────────────────────────────────────────────
+    ## -- 2x2 plot panel --------------------------------------------------------
     op <- par(mfrow = c(2, 2), mar = c(4, 4, 2.5, 1))
     on.exit(par(op), add = TRUE)
 
@@ -880,7 +880,7 @@ assessFit <- function(betaMixObj, yLim = 5, qq_purity = 0.9) {
            pch = 21, pt.bg = c("orange", "tomato"), pt.cex = 1.4,
            cex = 0.75, bty = "n")
 
-    ## ── Verbal assessment ─────────────────────────────────────────────────────
+    ## -- Verbal assessment -----------------------------------------------------
     cat("=== assessFit: Goodness-of-Fit Summary ===\n")
     cat(sprintf("  Hard-assigned null: %d,  non-null: %d\n", n_null, n_nonnull))
     cat(sprintf("  Null component   KS D = %s  [%s]\n",
@@ -1278,7 +1278,7 @@ plotDegCC <- function(betamixobj, clusterInfo = NULL, highlightNodes = NULL) {
   cc0 <- clusterInfo$cc
   deg0 <- clusterInfo$degree
   if (length(deg0) == 0 || max(deg0) == 0) {
-    warning("plotDegCC: no edges in graph — nothing to plot")
+    warning("plotDegCC: no edges in graph -- nothing to plot")
     return(invisible(NULL))
   }
   plot(deg0, deg0 * cc0,

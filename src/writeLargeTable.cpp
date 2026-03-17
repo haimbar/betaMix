@@ -1,4 +1,4 @@
-#include <RcppArmadillo.h>
+#include <Rcpp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <algorithm>
@@ -21,7 +21,6 @@ static inline int pkg_fseek(FILE* fp, long long offset, int origin) {
 }
 #endif
 
-//[[Rcpp::depends(RcppArmadillo)]]
 using namespace Rcpp;
 
 // Wrapper to suppress -Wunused-result for intentionally discarded fread return values.
