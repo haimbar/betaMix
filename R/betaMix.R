@@ -385,6 +385,235 @@ plotFittedBetaMix <- function(betaMixObj, yLim = 5) {
   })
 }
 
+#' Assess the goodness of fit of a betaMix model.
+#'
+#' Produces a 2x2 diagnostic plot and a printed verbal assessment of how well
+#' the fitted two-component beta mixture describes the data.
+#'
+#' The four panels are:
+#' \enumerate{
+#'   \item The standard \code{\link{plotFittedBetaMix}} histogram overlay.
+#'   \item Q-Q plot for the null component: hard-assigned observations
+#'     (\code{m0 >= 0.5}) vs \code{Beta(etahat, 0.5)}.
+#'   \item Q-Q plot for the non-null component: hard-assigned observations
+#'     (\code{m0 < 0.5}), scaled by \code{bmax}, vs \code{Beta(ahat, bhat)}.
+#'   \item Kernel density of non-null \eqn{z_j} overlaid with the fitted
+#'     Beta density; vertical orange dotted lines mark modes when more than one
+#'     is detected.
+#' }
+#'
+#' Q-Q points are blue when the Kolmogorov-Smirnov D statistic is
+#' \eqn{\le 0.05} and red when \eqn{D > 0.05}.  Raw p-values are not used
+#' as the decision threshold because with tens of thousands of observations
+#' even \eqn{D \approx 0.01} yields \eqn{p \approx 0}.
+#'
+#' Multimodality is assessed by counting local maxima of the kernel density
+#' that reach at least 10\% of the global maximum.
+#'
+#' @param betaMixObj The list returned by \code{\link{betaMix}}.
+#' @param yLim The maximum y-axis value for panel 1 (passed to
+#'   \code{\link{plotFittedBetaMix}}).  Default \code{5}.
+#' @return Invisibly, a named list:
+#' \describe{
+#'   \item{ks_null}{Result of \code{ks.test} for the null component
+#'     (\code{NULL} if fewer than 2 null-assigned observations).}
+#'   \item{ks_nonnull}{Result of \code{ks.test} for the non-null component
+#'     (\code{NULL} if fewer than 2 non-null-assigned observations after
+#'     boundary filtering).}
+#'   \item{n_null}{Number of hard-assigned null observations.}
+#'   \item{n_nonnull}{Number of hard-assigned non-null observations.}
+#'   \item{n_modes}{Number of detected density peaks in the non-null component;
+#'     \code{NA} if fewer than 10 non-null observations are available.}
+#'   \item{assessment}{Overall character verdict: \code{"Good fit"},
+#'     \code{"Acceptable fit"}, or \code{"Deviations detected"}.}
+#' }
+#' @export
+#' @import stats graphics
+#' @examples
+#' \dontrun{
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-5, ppr = 0.01,
+#'                subsamplesize = 30000, ind = TRUE)
+#' fit_diag <- assessFit(res)
+#' fit_diag$assessment
+#' }
+assessFit <- function(betaMixObj, yLim = 5) {
+  with(betaMixObj, {
+
+    ## ── Hard assignment ───────────────────────────────────────────────────────
+    null_idx    <- which(m0 >= 0.5)
+    nonnull_idx <- which(m0 <  0.5)
+    n_null      <- length(null_idx)
+    n_nonnull   <- length(nonnull_idx)
+
+    ## ── KS test: null component ───────────────────────────────────────────────
+    ks_null <- NULL
+    if (n_null >= 2) {
+      ks_null <- ks.test(z_j[null_idx], "pbeta", etahat, 0.5)
+    } else {
+      warning("assessFit: fewer than 2 null-assigned observations; null KS test skipped.")
+    }
+
+    ## ── KS test: non-null component ───────────────────────────────────────────
+    z_nn_raw <- if (n_nonnull > 0) z_j[nonnull_idx] / bmax else numeric(0)
+    z_nn     <- z_nn_raw[z_nn_raw > 1e-6 & z_nn_raw < 1 - 1e-6]
+    ks_nonnull <- NULL
+    if (length(z_nn) >= 2) {
+      ks_nonnull <- ks.test(z_nn, "pbeta", ahat, bhat)
+    } else {
+      warning("assessFit: fewer than 2 non-null observations after boundary filtering; ",
+              "non-null KS test skipped.")
+    }
+
+    ## ── Multimodality in non-null ─────────────────────────────────────────────
+    dens_nn         <- NULL
+    n_modes         <- NA_integer_
+    peaks_above_thr <- integer(0)
+    if (n_nonnull >= 10) {
+      dens_nn        <- density(z_j[nonnull_idx])
+      peak_threshold <- 0.10 * max(dens_nn$y)
+      dy             <- dens_nn$y
+      n_d            <- length(dy)
+      is_peak        <- c(FALSE,
+                          dy[seq(2, n_d - 1)] > dy[seq(1, n_d - 2)] &
+                          dy[seq(2, n_d - 1)] > dy[seq(3, n_d)],
+                          FALSE)
+      peaks_above_thr <- which(is_peak & dy >= peak_threshold)
+      n_modes         <- length(peaks_above_thr)
+    }
+
+    ## ── Heavy left tail ───────────────────────────────────────────────────────
+    left_tail_frac  <- if (n_nonnull > 0) mean(z_j[nonnull_idx] < 0.05) else 0
+    heavy_left_tail <- left_tail_frac > 0.20
+
+    ## ── Deviation flags ───────────────────────────────────────────────────────
+    null_D    <- if (!is.null(ks_null))    unname(ks_null$statistic)    else NA_real_
+    nonnull_D <- if (!is.null(ks_nonnull)) unname(ks_nonnull$statistic) else NA_real_
+    null_dev    <- !is.na(null_D)    && null_D    > 0.05
+    nonnull_dev <- !is.na(nonnull_D) && nonnull_D > 0.05
+    multimodal  <- !is.na(n_modes) && n_modes > 1
+    no_signal   <- edges == 0L
+    extreme_p0  <- p0 < 0.01
+
+    n_issues   <- sum(null_dev, nonnull_dev, multimodal, heavy_left_tail, no_signal, extreme_p0)
+    assessment <- if (n_issues == 0) "Good fit" else
+                  if (n_issues == 1) "Acceptable fit" else
+                  "Deviations detected"
+
+    ## ── 2x2 plot panel ────────────────────────────────────────────────────────
+    op <- par(mfrow = c(2, 2), mar = c(4, 4, 2.5, 1))
+    on.exit(par(op), add = TRUE)
+
+    ## Panel 1: standard fitted mixture
+    plotFittedBetaMix(betaMixObj, yLim = yLim)
+    title(main = "Fitted mixture", line = 0.5)
+
+    ## Panel 2: Q-Q plot, null component
+    if (n_null >= 2) {
+      z_null_sorted <- sort(z_j[null_idx])
+      q_theo_null   <- qbeta(ppoints(n_null), etahat, 0.5)
+      col_null      <- if (!is.na(null_D) && null_D > 0.05) "tomato" else "steelblue"
+      plot(q_theo_null, z_null_sorted,
+           pch = 16, cex = 0.4, col = col_null,
+           xlab = sprintf("Theoretical quantiles  Beta(%.2f, 0.5)", etahat),
+           ylab = "Sample quantiles (null-assigned)",
+           main = sprintf("Q-Q: Null  (D = %.4f)", null_D))
+      abline(0, 1, lwd = 1.5, lty = 2, col = "grey40")
+    } else {
+      plot.new()
+      text(0.5, 0.5, "Insufficient null\nobservations", cex = 1.1)
+      title(main = "Q-Q: Null  (no data)")
+    }
+
+    ## Panel 3: Q-Q plot, non-null component (scaled by bmax)
+    if (length(z_nn) >= 2) {
+      z_nn_sorted <- sort(z_nn)
+      q_theo_nn   <- qbeta(ppoints(length(z_nn_sorted)), ahat, bhat)
+      col_nn      <- if (!is.na(nonnull_D) && nonnull_D > 0.05) "tomato" else "steelblue"
+      plot(q_theo_nn, z_nn_sorted,
+           pch = 16, cex = 0.4, col = col_nn,
+           xlab = sprintf("Theoretical quantiles  Beta(%.2f, %.2f)", ahat, bhat),
+           ylab = sprintf("Sample quantiles (non-null, z_j/%.3f)", bmax),
+           main = sprintf("Q-Q: Non-null  (D = %.4f)", nonnull_D))
+      abline(0, 1, lwd = 1.5, lty = 2, col = "grey40")
+    } else {
+      plot.new()
+      text(0.5, 0.5, "Insufficient non-null\nobservations", cex = 1.1)
+      title(main = "Q-Q: Non-null  (no data)")
+    }
+
+    ## Panel 4: kernel density of non-null z_j + fitted Beta overlay
+    if (!is.null(dens_nn)) {
+      xgrid     <- seq(1e-4, bmax - 1e-4, length.out = 512)
+      beta_dens <- dbeta(xgrid / bmax, ahat, bhat) / bmax  # Jacobian correction
+      ylim_p4   <- c(0, max(max(dens_nn$y), max(beta_dens)) * 1.05)
+      plot(dens_nn,
+           ylim = ylim_p4,
+           main = sprintf("Non-null density  (%d mode%s)",
+                          n_modes, if (n_modes == 1L) "" else "s"),
+           xlab = expression(z[j]),
+           ylab = "Density",
+           col = "steelblue", lwd = 2)
+      lines(xgrid, beta_dens, col = "firebrick", lwd = 2, lty = 2)
+      if (length(peaks_above_thr) > 1L)
+        abline(v = dens_nn$x[peaks_above_thr], col = "orange", lty = 3, lwd = 1.5)
+      legend("topright",
+             legend = c("Kernel density",
+                        sprintf("Beta(%.2f, %.2f)/bmax", ahat, bhat)),
+             col = c("steelblue", "firebrick"),
+             lty = c(1, 2), lwd = 2, cex = 0.75, bty = "n")
+    } else {
+      plot.new()
+      text(0.5, 0.5, "Insufficient non-null\nobservations", cex = 1.1)
+      title(main = "Non-null density  (no data)")
+    }
+
+    ## ── Verbal assessment ─────────────────────────────────────────────────────
+    cat("=== assessFit: Goodness-of-Fit Summary ===\n")
+    cat(sprintf("  Hard-assigned null: %d,  non-null: %d\n", n_null, n_nonnull))
+    cat(sprintf("  Null component   KS D = %s  [%s]\n",
+                if (is.na(null_D)) "NA" else sprintf("%.4f", null_D),
+                if      (is.na(null_D)) "skipped"
+                else if (null_dev)      "NOTABLE - D > 0.05"
+                else                    "OK"))
+    if (null_dev)
+      cat("    Hint: null deviation may indicate dependent samples;",
+          "try betaMix(..., ind = FALSE).\n")
+    cat(sprintf("  Non-null component   KS D = %s  [%s]\n",
+                if (is.na(nonnull_D)) "NA" else sprintf("%.4f", nonnull_D),
+                if      (is.na(nonnull_D)) "skipped"
+                else if (nonnull_dev)      "NOTABLE - D > 0.05"
+                else                       "OK"))
+    if (nonnull_dev)
+      cat("    Hint: non-null deviation may indicate a multimodal or",
+          "heavy-tailed non-null distribution.\n")
+    if (!is.na(n_modes))
+      cat(sprintf("  Non-null modes: %d  [%s]\n",
+                  n_modes,
+                  if (multimodal) "NOTABLE - multimodal non-null component" else "OK"))
+    cat(sprintf("  Heavy left tail (z_j < 0.05): %.1f%%  [%s]\n",
+                100 * left_tail_frac,
+                if (heavy_left_tail) "NOTABLE - excess mass near 0" else "OK"))
+    if (no_signal)
+      cat("  No edges detected  [WARNING: no non-null signal found]\n")
+    cat(sprintf("  p0 = %.4f  [%s]\n", p0,
+                if   (p0 < 0.01) "WARNING: ill-conditioned null (nearly all pairs non-null)"
+                else              "OK"))
+    cat(sprintf("  Overall verdict: >>> %s <<<\n", assessment))
+    cat("==========================================\n")
+
+    invisible(list(
+      ks_null    = ks_null,
+      ks_nonnull = ks_nonnull,
+      n_null     = n_null,
+      n_nonnull  = n_nonnull,
+      n_modes    = n_modes,
+      assessment = assessment
+    ))
+  })
+}
+
+
 #' Print a short summary of the fitted mixture model.
 #'
 #' Prints the estimated model parameters (ahat, bhat, etahat), the posterior

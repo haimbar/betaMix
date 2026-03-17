@@ -1,3 +1,26 @@
+# betaMix 0.2.15
+
+## New features
+
+- `assessFit()`: new exported function that produces a 2×2 diagnostic plot and
+  a printed goodness-of-fit assessment for a fitted betaMix model.
+  - Panel 1: fitted mixture histogram (`plotFittedBetaMix`).
+  - Panel 2: Q-Q plot of null-assigned observations (m0 ≥ 0.5) vs
+    Beta(η̂, 0.5); points are blue when KS D ≤ 0.05, red otherwise.
+  - Panel 3: Q-Q plot of non-null-assigned observations (m0 < 0.5, scaled by
+    bmax) vs Beta(â, b̂).
+  - Panel 4: kernel density of non-null z_j overlaid with the fitted Beta
+    density; orange dotted lines mark additional modes when the non-null
+    component is multimodal.
+  - Verbal summary covers: KS D statistics for both components, multimodality
+    (local density peaks ≥ 10 % of max), heavy left-tail concentration, and
+    extreme p0 values. Overall verdict is one of "Good fit", "Acceptable fit",
+    or "Deviations detected".
+  - Practical deviation threshold: KS D > 0.05 (not the raw p-value, which is
+    unreliable for large numbers of pairs).
+
+---
+
 # betaMix 0.2.14
 
 ## Documentation
