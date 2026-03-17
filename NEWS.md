@@ -1,3 +1,12 @@
+# betaMix 0.2.14
+
+## Documentation
+
+- Vignette: added "Automated PDF Report" section with a `betaMixReport()`
+  invocation example and a description of its key arguments.
+
+---
+
 # betaMix 0.2.13
 
 ## Bug fixes

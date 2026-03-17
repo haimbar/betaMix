@@ -118,6 +118,30 @@ We  display the network of cluster 1, which shows that betaMix detects the corre
 knitr::include_graphics('./SimCluster1.png')
 ```
 
+# Automated PDF Report
+
+The `betaMixReport()` function runs the full pipeline and renders a
+self-contained PDF report in one call. The report includes a dataset overview,
+summary statistics, the fitted mixture model with its threshold, and all
+standard diagnostic plots (fitted mixture, degree vs. clustering coefficient,
+adjacency bitmap, and a representative cluster network).
+
+```
+library("betaMix")
+data(DrySeeds)
+betaMixReport(DrySeeds,
+              dataset_name = "DrySeeds",
+              output_dir   = "reports",
+              ind          = TRUE)
+```
+
+The PDF is written to `reports/betaMix_DrySeeds.pdf` (the directory is created
+automatically if it does not exist). Key options mirror those of `betaMix()`:
+`ind`, `maxalpha`, `ppr`, `method` (`"pearson"` or `"spearman"`), and
+`subsamplesize`. The `signed` argument passes signed edges to the cluster
+network plot, and `rep_cluster` lets you override the automatically chosen
+cluster.
+
 # Using Spearman's rank correlation
 
 Spearman's correlation is recommended when the relationships between predictors are monotone but not linear. To use it, pass `method = "spearman"` to `betaMix()`. No other changes to the workflow are needed.

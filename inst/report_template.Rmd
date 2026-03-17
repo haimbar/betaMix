@@ -178,17 +178,23 @@ if (!is.null(clusterTab) && nrow(clusterTab) > 0) {
   pct_cols <- grep("pctInClst", colnames(tab_display))
   tab_display[, pct_cols] <- round(tab_display[, pct_cols], 3)
 
-  knitr::kable(tab_display,
+  deg_cols <- c(1, 2, 3, 4, 5, 6, 7)
+  pct_cols_idx <- c(1, 8, 9, 10, 11, 12)
+
+  print(knitr::kable(tab_display[, deg_cols],
                col.names = c("Cluster", "Nodes",
-                             "Deg. Min", "Deg. Q1", "Deg. Med.", "Deg. Q3", "Deg. Max",
-                             "Pct. Min", "Pct. Q1", "Pct. Med.", "Pct. Q3", "Pct. Max"),
+                             "Min", "Q1", "Median", "Q3", "Max"),
                booktabs  = TRUE,
                row.names = FALSE,
-               caption   = paste("Cluster summary. Deg. columns give the",
-                                 "five-number summary of node degree.",
-                                 "Pct. columns give the proportion of each",
-                                 "node's edges that lie within its cluster.")) |>
-    kableExtra::kable_styling(latex_options = c("hold_position", "scale_down"))
+               caption   = "Cluster degree summary (five-number summary of node degree within each cluster)."))
+  cat("\n")
+  print(knitr::kable(tab_display[, pct_cols_idx],
+               col.names = c("Cluster",
+                             "Min", "Q1", "Median", "Q3", "Max"),
+               booktabs  = TRUE,
+               row.names = FALSE,
+               caption   = "Proportion of within-cluster edges (five-number summary of the fraction of each node's edges that lie within its cluster).",
+               digits    = 3))
 } else {
   cat("*No clusters detected (all nodes are unclustered).*\n")
 }
