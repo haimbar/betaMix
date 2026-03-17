@@ -161,16 +161,16 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
       wt <- 1 - m_nns_cur[inc]
       swt_logz <- sum(wt * log_z)
       swt_log1mz <- sum(wt * log1mz)
-      ests <- try(nleqslv(c(ahat, bhat), MLEfun,
+      ests_full <- try(nleqslv(c(ahat, bhat), MLEfun,
         jac = jacmle,
         sm_val = sm_val, swt_logz = swt_logz,
         swt_log1mz = swt_log1mz
-      )$x, silent = TRUE)
-      if (inherits(ests, "try-error")) {
-        message("betaMix error when estimating a and b:", ests, "\n")
-      } else {
-        ahat <- min(max(ests[1], 0.5), 1000)
-        bhat <- min(max(ests[2], 0.5), 1000)
+      ), silent = TRUE)
+      if (inherits(ests_full, "try-error")) {
+        message("betaMix error when estimating a and b:", ests_full, "\n")
+      } else if (ests_full$termcd %in% c(1L, 2L)) {
+        ahat <- min(max(ests_full$x[1], 0.5), 1000)
+        bhat <- min(max(ests_full$x[2], 0.5), 1000)
       }
     }
     # E-step: reuse precomputed dbeta0_nns; m0[-nns] stays 1 (no NA possible)
@@ -327,9 +327,13 @@ jacmle <- function(par, sm_val, ...) {
   a <- par[1]
   b <- par[2]
   tab <- trigamma(a + b) # computed once; used three times below
+  # J[i,j] = d(MLEfun[i])/d(par[j]):
+  #   J[1,1] = sm_val*(trigamma(a) - trigamma(a+b))  > 0
+  #   J[1,2] = J[2,1] = -sm_val*trigamma(a+b)        < 0
+  #   J[2,2] = sm_val*(trigamma(b) - trigamma(a+b))  > 0
   sm_val * matrix(c(
-    tab - trigamma(a), tab,
-    tab, tab - trigamma(b)
+    trigamma(a) - tab, -tab,
+    -tab, trigamma(b) - tab
   ), 2, 2)
 }
 
@@ -466,6 +470,77 @@ plotROC <- function(betaMixObj) {
 }
 
 
+#' Plot the kernel density of non-null observations with fitted Beta overlay.
+#'
+#' Plots the empirical kernel density of non-null-assigned \eqn{z_j} values
+#' overlaid with the fitted \eqn{\text{Beta}(\hat{a}, \hat{b})} density.
+#' When more than one mode is detected, orange dotted vertical lines mark each
+#' additional peak.
+#'
+#' @param betaMixObj The list returned by \code{\link{betaMix}}.
+#' @return Invisibly, a named list:
+#' \describe{
+#'   \item{n_modes}{Integer number of detected density peaks.}
+#'   \item{peaks_x}{x-positions (on the \eqn{z_j} scale) of the detected peaks.}
+#' }
+#' @export
+#' @import graphics stats
+#' @examples
+#' \dontrun{
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-5, ppr = 0.01,
+#'                subsamplesize = 30000, ind = TRUE)
+#' plotNonNullDensity(res)
+#' }
+plotNonNullDensity <- function(betaMixObj) {
+  with(betaMixObj, {
+    nonnull_idx <- which(m0 < 0.5)
+    n_nonnull   <- length(nonnull_idx)
+
+    if (n_nonnull < 10) {
+      plot.new()
+      text(0.5, 0.5, "Insufficient non-null\nobservations", cex = 1.1)
+      title(main = "Non-null density  (no data)")
+      return(invisible(list(n_modes = NA_integer_, peaks_x = numeric(0))))
+    }
+
+    dens_nn        <- density(z_j[nonnull_idx])
+    peak_threshold <- 0.10 * max(dens_nn$y)
+    dy             <- dens_nn$y
+    n_d            <- length(dy)
+    is_peak        <- c(FALSE,
+                        dy[seq(2, n_d - 1)] > dy[seq(1, n_d - 2)] &
+                        dy[seq(2, n_d - 1)] > dy[seq(3, n_d)],
+                        FALSE)
+    peaks_above_thr <- which(is_peak & dy >= peak_threshold)
+    n_modes         <- length(peaks_above_thr)
+
+    xgrid     <- seq(1e-4, bmax - 1e-4, length.out = 512)
+    beta_dens <- dbeta(xgrid / bmax, ahat, bhat) / bmax   # Jacobian correction
+    ylim_p    <- c(0, max(max(dens_nn$y), max(beta_dens)) * 1.05)
+
+    plot(dens_nn,
+         ylim = ylim_p,
+         main = sprintf("Non-null density  (%d mode%s)",
+                        n_modes, if (n_modes == 1L) "" else "s"),
+         xlab = expression(z[j]),
+         ylab = "Density",
+         col = "steelblue", lwd = 2)
+    lines(xgrid, beta_dens, col = "firebrick", lwd = 2, lty = 2)
+    if (length(peaks_above_thr) > 1L)
+      abline(v = dens_nn$x[peaks_above_thr], col = "orange", lty = 3, lwd = 1.5)
+    legend("topright",
+           legend = c("Kernel density",
+                      sprintf("Beta(%.2f, %.2f)/bmax", ahat, bhat)),
+           col    = c("steelblue", "firebrick"),
+           lty    = c(1, 2), lwd = 2, cex = 0.75, bty = "n")
+
+    invisible(list(n_modes = n_modes,
+                   peaks_x = dens_nn$x[peaks_above_thr]))
+  })
+}
+
+
 #' Plot the histogram of the z_j and the fitted mixture distribution.
 #'
 #' @param betaMixObj An object returned from betaMix()
@@ -506,9 +581,10 @@ plotFittedBetaMix <- function(betaMixObj, yLim = 5) {
 #'     (\code{m0 >= 0.5}) vs \code{Beta(etahat, 0.5)}.
 #'   \item Q-Q plot for the non-null component: hard-assigned observations
 #'     (\code{m0 < 0.5}), scaled by \code{bmax}, vs \code{Beta(ahat, bhat)}.
-#'   \item Kernel density of non-null \eqn{z_j} overlaid with the fitted
-#'     Beta density; vertical orange dotted lines mark modes when more than one
-#'     is detected.
+#'   \item Model-based ROC curve (see \code{\link{plotROC}}): FPR and TPR swept
+#'     over all thresholds using the fitted Beta distributions.  The orange
+#'     point marks the current threshold; the red point marks the Youden-index
+#'     optimum.
 #' }
 #'
 #' Q-Q points are blue when the Kolmogorov-Smirnov D statistic is
@@ -651,31 +727,32 @@ assessFit <- function(betaMixObj, yLim = 5) {
       title(main = "Q-Q: Non-null  (no data)")
     }
 
-    ## Panel 4: kernel density of non-null z_j + fitted Beta overlay
-    if (!is.null(dens_nn)) {
-      xgrid     <- seq(1e-4, bmax - 1e-4, length.out = 512)
-      beta_dens <- dbeta(xgrid / bmax, ahat, bhat) / bmax  # Jacobian correction
-      ylim_p4   <- c(0, max(max(dens_nn$y), max(beta_dens)) * 1.05)
-      plot(dens_nn,
-           ylim = ylim_p4,
-           main = sprintf("Non-null density  (%d mode%s)",
-                          n_modes, if (n_modes == 1L) "" else "s"),
-           xlab = expression(z[j]),
-           ylab = "Density",
-           col = "steelblue", lwd = 2)
-      lines(xgrid, beta_dens, col = "firebrick", lwd = 2, lty = 2)
-      if (length(peaks_above_thr) > 1L)
-        abline(v = dens_nn$x[peaks_above_thr], col = "orange", lty = 3, lwd = 1.5)
-      legend("topright",
-             legend = c("Kernel density",
-                        sprintf("Beta(%.2f, %.2f)/bmax", ahat, bhat)),
-             col = c("steelblue", "firebrick"),
-             lty = c(1, 2), lwd = 2, cex = 0.75, bty = "n")
-    } else {
-      plot.new()
-      text(0.5, 0.5, "Insufficient non-null\nobservations", cex = 1.1)
-      title(main = "Non-null density  (no data)")
-    }
+    ## Panel 4: model-based ROC curve (plot only, no console output)
+    tau_grid   <- seq(0, 1, length.out = 2001)
+    fpr_roc    <- pbeta(tau_grid, etahat, 0.5)
+    tpr_roc    <- pbeta(pmin(tau_grid, bmax) / bmax, ahat, bhat)
+    auc_roc    <- sum(diff(fpr_roc) * (tpr_roc[-1L] + tpr_roc[-length(tpr_roc)]) / 2)
+    j_idx      <- which.max(tpr_roc - fpr_roc)
+    tau_youden <- tau_grid[j_idx]
+    fpr_youden <- fpr_roc[j_idx]
+    tpr_youden <- tpr_roc[j_idx]
+    fpr_cur    <- pbeta(ppthr, etahat, 0.5)
+    tpr_cur    <- pbeta(min(ppthr, bmax) / bmax, ahat, bhat)
+
+    plot(fpr_roc, tpr_roc, type = "l", lwd = 2, col = "steelblue",
+         xlim = c(0, 1), ylim = c(0, 1),
+         xlab = "False Positive Rate",
+         ylab = "True Positive Rate",
+         main = sprintf("ROC  (AUC = %.4f)", auc_roc))
+    abline(0, 1, lty = 2, col = "grey60")
+    abline(v = pbeta(bmax, etahat, 0.5), lty = 3, col = "grey70")
+    points(fpr_cur,    tpr_cur,    pch = 21, bg = "orange", cex = 1.8)
+    points(fpr_youden, tpr_youden, pch = 21, bg = "tomato",  cex = 1.8)
+    legend("bottomright",
+           c(sprintf("Current  tau=%.3g", ppthr),
+             sprintf("Youden   tau=%.3g", tau_youden)),
+           pch = 21, pt.bg = c("orange", "tomato"), pt.cex = 1.4,
+           cex = 0.75, bty = "n")
 
     ## ── Verbal assessment ─────────────────────────────────────────────────────
     cat("=== assessFit: Goodness-of-Fit Summary ===\n")

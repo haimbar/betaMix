@@ -149,35 +149,18 @@ the data, followed by a printed verdict.
   (KS $D \leq 0.05$); red indicates a notable departure.
 - **Bottom-left**: Q-Q plot for non-null-assigned observations ($m_0 < 0.5$,
   scaled by $b_{\max}$) vs $\text{Beta}(\hat{a}, \hat{b})$.
-- **Bottom-right**: kernel density of non-null $z_{ij}$ (blue) overlaid with
-  the fitted Beta density (red dashed). Orange dotted lines mark additional
-  modes when the non-null component appears multimodal.
+- **Bottom-right**: model-based ROC curve sweeping $\tau$ from 0 to 1 using
+  the fitted Beta distributions. The orange point marks the current threshold
+  $\hat{\tau}$; the red point marks the Youden-index optimum
+  $\tau^* = \arg\max_\tau [\text{TPR}(\tau) - \text{FPR}(\tau)]$.
+  The grey dotted vertical line shows the FPR at $\tau = b_{\max}$.
 
 The KS $D$ statistic measures practical deviation; raw p-values are not used
 as the threshold because with tens of thousands of pairs even $D \approx 0.01$
 yields $p \approx 0$.
 
-```{r assess-fit, fig.height=7, fig.width=7, fig.cap="Goodness-of-fit diagnostics: fitted mixture (top-left), null Q-Q (top-right), non-null Q-Q (bottom-left), non-null kernel density vs fitted Beta (bottom-right). Blue points indicate good fit (KS D <= 0.05); red indicates notable departure."}
+```{r assess-fit, fig.height=7, fig.width=7, fig.cap="Goodness-of-fit diagnostics: fitted mixture (top-left), null Q-Q (top-right), non-null Q-Q (bottom-left), model-based ROC curve (bottom-right). Blue Q-Q points indicate good fit (KS D <= 0.05); red indicates notable departure."}
 assessFit(params$res)
-```
-
-## ROC Curve and Threshold Selection
-
-The model-based ROC curve below sweeps $\tau$ from 0 to 1 and plots
-$\text{FPR}(\tau) = P(z < \tau \mid \text{null})$ against
-$\text{TPR}(\tau) = P(z < \tau \mid \text{non-null})$, using the fitted
-Beta distributions directly — no ground-truth labels are required.
-
-The **orange point** marks the current threshold $\hat{\tau}$ used in this
-report. The **red point** marks the Youden-index optimum
-$\tau^* = \arg\max_\tau [\text{TPR}(\tau) - \text{FPR}(\tau)]$,
-which maximises the sum of sensitivity and specificity. The grey dotted
-vertical line indicates the FPR at $\tau = b_{\max}$; to the right of it
-the TPR is 1 and the curve is flat. A higher AUC indicates better
-separability of null and non-null pairs under the fitted model.
-
-```{r roc-curve, fig.height=4.5, fig.width=4.5, fig.cap="Model-based ROC curve. Orange: current threshold. Red: Youden-index optimum. Grey dotted line: FPR at the non-null support boundary."}
-plotROC(params$res)
 ```
 
 ---

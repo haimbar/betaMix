@@ -40,9 +40,10 @@ The four panels are:
     (\code{m0 >= 0.5}) vs \code{Beta(etahat, 0.5)}.
   \item Q-Q plot for the non-null component: hard-assigned observations
     (\code{m0 < 0.5}), scaled by \code{bmax}, vs \code{Beta(ahat, bhat)}.
-  \item Kernel density of non-null \eqn{z_j} overlaid with the fitted
-    Beta density; vertical orange dotted lines mark modes when more than one
-    is detected.
+  \item Model-based ROC curve (see \code{\link{plotROC}}): FPR and TPR swept
+    over all thresholds using the fitted Beta distributions.  The orange
+    point marks the current threshold; the red point marks the Youden-index
+    optimum.
 }
 
 Q-Q points are blue when the Kolmogorov-Smirnov D statistic is

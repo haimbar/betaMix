@@ -56,25 +56,28 @@ We now show how to summarize and visualize the results. For example, the followi
 adjMat1 <- getAdjMat(res1)
 graphComp1 <- graphComponents(adjMat1,minCtr = 2,type=1)
 head(summarizeClusters(graphComp1))
-plotCluster(adjMat1, 3, graphComp1, labels=TRUE, nodecol = "blue")
+plotCluster(adjMat1, 1, graphComp1, labels=TRUE, nodecol = "blue")
 ```
 
 
 ```
-Num of nodes: 68 
-Num of edges: 236 
-Num of clusters: 3 
-Num of unclustered nodes: 27 
+Num of nodes: 68
+Num of edges: 323
+Num of clusters: 6
+Num of unclustered nodes: 13
      Cluster Nodes degreeMin degreeQ25 degreeMedian degreeQ75 degreeMax pctInClstMin pctInClstQ25
-[1,]       1    17         5        10           12        14        16    0.4444444    0.9090909
-[2,]       2    17         4         6           10        12        16    0.5000000    0.6666667
-[3,]       3     7         3         4            5         5         6    0.6666667    0.9000000
+[1,]       1    24         4      11.5         15.0      16.0        23    0.3125000    0.4833333
+[2,]       2    13         8      13.0         16.0      18.0        19    0.5555556    0.6153846
+[3,]       3     4         5       6.0          7.5       9.0        10    0.1428571    0.1964286
+[4,]       4     4         2       3.5          6.5       8.5          9    0.2500000    0.2916667
+[5,]       5     6         4       4.0          5.0       6.0          7    0.5000000    0.7142857
+[6,]       6     4         2       2.5          3.5       4.5          5    0.2500000    0.4250000
 ```
 
-A depiction of the third cluster is obtained by using the function plotCluster:
+A depiction of the first cluster is obtained by using the function plotCluster:
 
 ```{r echo=FALSE, out.width='50%'}
-knitr::include_graphics('./DrySeedCluster3.png')
+knitr::include_graphics('./DrySeedCluster1.png')
 ```
 
 We can do the same for the SixHourImbibed dataset:
@@ -88,6 +91,13 @@ adjMat2 <- getAdjMat(res2)
 graphComp2 <- graphComponents(adjMat2,minCtr = 2,type=1)
 summarizeClusters(graphComp2)
 plotCluster(adjMat2, 3, graphComp2, labels=TRUE, nodecol = "red")
+```
+
+```
+Num of nodes: 68
+Num of edges: 251
+Num of clusters: 7
+Num of unclustered nodes: 11
 ```
 
 
@@ -110,6 +120,13 @@ SimadjMat <- getAdjMat(Simres,signed=TRUE)
 SimgraphComp <- graphComponents(SimadjMat,minCtr = 2,type=1)
 summarizeClusters(SimgraphComp)
 plotCluster(SimadjMat, 1, SimgraphComp, labels=TRUE, nodecol = "red", edgecols = c("green","red"), labelsize = 0.7)
+```
+
+```
+Num of nodes: 1000
+Num of edges: 775
+Num of clusters: 50
+Num of unclustered nodes: 206
 ```
 
 We  display the network of cluster 1, which shows that betaMix detects the correct cluster (hub) structure.
@@ -166,9 +183,10 @@ The four panels are:
    scaled by $b_{\max}$, vs $\text{Beta}(\hat{a}, \hat{b})$. Systematic
    curvature or red points suggest the non-null component is not well described
    by a single Beta distribution.
-4. **Non-null kernel density** — the empirical density (blue) overlaid with
-   the fitted Beta density (red dashed). Orange dotted lines mark additional
-   modes when the non-null component appears multimodal.
+4. **Model-based ROC curve** — sweeps $\tau$ from 0 to 1 using the fitted
+   Beta distributions. The orange point marks the current threshold; the red
+   point marks the Youden-index optimum $\tau^* = \arg\max_\tau [\text{TPR}(\tau) -
+   \text{FPR}(\tau)]$.  The AUC summarises overall separability.
 
 The printed assessment reports KS $D$ for both components, the number of
 detected modes, and an overall verdict (`"Good fit"`, `"Acceptable fit"`, or
@@ -178,11 +196,9 @@ yields $p \approx 0$.
 
 ## Model-based ROC curve
 
-The current threshold is set by `maxalpha` and `ppr`, which control Type I
-error and the posterior probability rate respectively. After fitting,
-`plotROC()` provides a complementary data-driven view: it sweeps $\tau$ from
-0 to 1 and plots the exact false- and true-positive rates implied by the
-fitted Beta distributions — no ground-truth labels are needed.
+The ROC curve is now embedded in the bottom-right panel of `assessFit()`.
+For standalone use, `plotROC()` produces the same plot and additionally
+returns the AUC and Youden-index threshold:
 
 ```
 roc <- plotROC(res1)
@@ -201,6 +217,9 @@ adjMat_youden <- getAdjMat(res1, ppthr = roc$tau_youden)
 The AUC summarises the overall separability of the two components: AUC close
 to 1 means the null and non-null distributions barely overlap; AUC near 0.5
 means they are almost indistinguishable at any threshold.
+
+To view the non-null kernel density plot separately (formerly panel 4 of
+`assessFit()`), use `plotNonNullDensity()`.
 
 # Using Spearman's rank correlation
 

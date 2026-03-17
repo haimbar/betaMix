@@ -1,3 +1,20 @@
+# betaMix 0.3.1
+
+## Bug fixes
+
+- Fixed `jacmle()`: all four entries of the 2×2 Jacobian matrix had the wrong
+  sign, causing `nleqslv` to fail with `termcd = 3` (maximum iterations
+  exceeded) on every EM M-step. As a result, `ahat` and `bhat` never moved
+  from their initial values (8, 3) in any dataset.
+- M-step now only updates `ahat`/`bhat` when `nleqslv` reports successful
+  convergence (`termcd` ∈ {1, 2}). Non-converged (`termcd = 3`) and
+  step-back (`termcd = 5`) results are silently ignored, preventing the EM
+  oscillation cycle that appeared for SixHourImbibed once the Jacobian sign
+  was corrected.
+- Vignette images and example output regenerated with the corrected estimates.
+
+---
+
 # betaMix 0.3.0
 
 ## New features

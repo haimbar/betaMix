@@ -1,21 +1,45 @@
 betaMix benchmark results
-Run: 2026-03-16 20:27:23 
-R:   R version 4.5.1 (2025-06-13) 
-Platform: aarch64-apple-darwin20 
+Run: 2026-03-17
+R:   R version 4.5.1 (2025-06-13)
+Platform: aarch64-apple-darwin20
 
-        dataset rows cols  pairs betaMix_s getAdjMat_s graphComp_s spherCaps_s
-   test_M_60x18   60   18    153    0.0000       0e+00      0.0000      0.0000
-   test_M_60x25   60   25    300    0.0003       1e-04      0.0002      0.0001
-  test_M_100x20  100   20    190    0.0002       1e-04      0.0002      0.0001
-       DrySeeds   50   68   2278    0.0019       2e-04      0.0060      0.0040
- SixHourImbibed   50   68   2278    0.0017       2e-04      0.0075      0.0040
-    SIM_100cols  200  100   4950    0.0028       3e-04      0.0070      0.0012
-   SIM_1000cols  200 1000 499500    0.1530       1e-02      0.0830      0.0100
- total_s
-  0.0002
-  0.0009
-  0.0007
-  0.0159
-  0.0168
-  0.0131
-  0.2895
+── 1. betaMix() -- EM model fitting
+  DrySeeds  (68 nodes, 50 samples,   2278 pairs)        median   0.0060s
+  SIM_small (100 nodes, 200 samples, 4950 pairs)        median   0.0160s
+  SIM full  (1000 nodes, 200 samples, subsampled)       median   0.1500s
+
+── 2. getAdjMat() -- adjacency matrix extraction
+  DrySeeds unsigned                                     median   0.0000s
+  DrySeeds signed                                       median   0.0000s
+  SIM unsigned                                          median   0.0110s
+  SIM signed                                            median   0.0265s
+
+── 3. clusteringCoef() -- clustering coefficients
+  random 50-node graph                                  median   0.0020s
+  random 100-node graph                                 median   0.0040s
+  random 200-node graph                                 median   0.0100s
+  DrySeeds adjacency (68 nodes)                         median   0.0030s
+  SIM adjacency (1000 nodes)                            median   0.0050s
+
+── 4. graphComponents() -- cluster detection
+  random 50-node graph                                  median   0.0060s
+  random 100-node graph                                 median   0.0125s
+  random 200-node graph                                 median   0.0310s
+  DrySeeds adjacency                                    median   0.0070s
+  SIM adjacency (1000 nodes)                            median   0.0850s
+
+── 5. shortestPathDistance() -- path distances
+  n=50  steps=1                                         median   0.0020s
+  n=50  steps=2                                         median   0.0040s
+  n=50  steps=3                                         median   0.0060s
+  n=100 steps=1                                         median   0.0030s
+  n=100 steps=2                                         median   0.0070s
+  n=200 steps=1                                         median   0.0120s
+
+── 6. sphericalCaps() -- hub detection
+  DrySeeds adjacency (68 nodes)                         median   0.0040s
+  SIM adjacency (1000 nodes)                            median   0.0100s
+
+── 7. summarizeClusters() -- cluster summary statistics
+  DrySeeds clusters                                     median   0.0000s
+  SIM clusters                                          median   0.0010s
