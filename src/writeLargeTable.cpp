@@ -16,12 +16,20 @@ static void fread_discard(void* buf, size_t size, FILE* fp) {
 void stdvec(NumericVector& x, int n) {
   double mnx = mean(x);
   double sdx = sd(x);
+  if (sdx == 0.0) {
+    Rf_warning("stdvec: zero standard deviation — vector has constant values and cannot be standardized");
+    return;
+  }
   for (int i = 0; i < n; i++) {
     x[i] = (x[i] - mnx) / sdx;
   }
 }
 
 double corr(const NumericVector& x, const NumericVector& y, int n) {
+  if (n <= 1) {
+    Rf_warning("corr: sample size n=%d is too small to compute correlation (need n >= 2)", n);
+    return 0.0;
+  }
   double s = 0.0;
   for (int i = 0; i < n; i++) s += x[i] * y[i];
   return s / (n - 1); // to match R

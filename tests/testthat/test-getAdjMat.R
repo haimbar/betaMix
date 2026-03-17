@@ -36,7 +36,8 @@ test_that("getAdjMat signed has zero/FALSE diagonal", {
 
 test_that("getAdjMat unsigned is symmetric", {
   adj <- getAdjMat(local_res)
-  expect_equal(as.matrix(adj), as.matrix(t(adj)))
+  adj_m <- as.matrix(adj)
+  expect_equal(adj_m, t(adj_m))
 })
 
 # ── Signed values ─────────────────────────────────────────────────────────────

@@ -77,6 +77,11 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
     N <- nrow(M)
     P <- ncol(M)
     etahat <- (N - 1) / 2
+    const_cols <- which(apply(M, 2, sd) == 0)
+    if (length(const_cols) > 0) {
+      warning("betaMix: ", length(const_cols), " constant (zero-variance) column(s) detected at index ",
+              paste(const_cols, collapse = ", "), "; their correlations will be set to 0")
+    }
     corM <- cor(M)
     if (any(is.na(corM))) {
       corM[is.na(corM)] <- 0
@@ -115,7 +120,9 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
     dbeta0_nns <- dbeta(z_j[nns], etahat, 0.5)
     p0f0_n <- p0 * dbeta0_nns
     p1f1_n <- (1 - p0) * dbeta(z_j_nns, ahat, bhat)
-    m0[nns] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
+    .denom <- p0f0_n + p1f1_n
+    if (any(.denom == 0)) warning("betaMix E-step: zero total density for ", sum(.denom == 0), " observation(s); treating as null")
+    m0[nns] <- ifelse(.denom > 0, p0f0_n / .denom, 1)
   }
   p0new <- p0 - 10 * tol
   cnt <- 0
@@ -163,7 +170,9 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
     if (length(nns) > 0) {
       p0f0_n <- p0 * dbeta0_nns
       p1f1_n <- (1 - p0) * dbeta(z_j_nns, ahat, bhat)
-      m0[nns] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
+      .denom <- p0f0_n + p1f1_n
+      if (any(.denom == 0)) warning("betaMix E-step: zero total density for ", sum(.denom == 0), " observation(s); treating as null")
+      m0[nns] <- ifelse(.denom > 0, p0f0_n / .denom, 1)
     }
     # O(|nns|) mean: m0[-nns] == 1 always, no NA after pmax/pmin
     p0new <- (sum(m0[nns]) + length(z_j) - length(nns)) / length(z_j)
@@ -191,7 +200,9 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
       z_j_nns_f <- z_j[nns_f] / bmax
       p0f0_n <- p0 * dbeta(z_j[nns_f], etahat, 0.5)
       p1f1_n <- (1 - p0) * dbeta(z_j_nns_f, ahat, bhat)
-      m0[nns_f] <- pmax(0, pmin(1, p0f0_n / (p0f0_n + p1f1_n)))
+      .denom <- p0f0_n + p1f1_n
+      if (any(.denom == 0)) warning("betaMix final E-step: zero total density for ", sum(.denom == 0), " observation(s); treating as null")
+      m0[nns_f] <- ifelse(.denom > 0, p0f0_n / .denom, 1)
     }
     p0 <- mean(m0)
     ppthr <- qbeta(maxalpha, etahat, 0.5)
@@ -261,7 +272,7 @@ getAdjMat <- function(res, dbname = NULL, ppthr = NULL, signed = FALSE, nodes = 
       }
     }
     diag(A) <- FALSE
-    return(A)
+    return(Matrix::Matrix(A))
   }
   if (!file.exists(dbname)) {
     message(paste("SQLite database", dbname, "not found!\n"))
@@ -569,8 +580,7 @@ summarizeClusters <- function(clustersInfo) {
   cat("Num of edges:", sum(clustersInfo$degree) / 2, "\n")
   cat("Num of clusters:", max(clustersInfo$clustNo), "\n")
   cat("Num of unclustered nodes:", length(which(clustersInfo$clustNo == 0)), "\n")
-  percentInCluster <- clustersInfo$intEdges / clustersInfo$degree
-  percentInCluster[which(clustersInfo$degree == 0)] <- 0
+  percentInCluster <- ifelse(clustersInfo$degree > 0, clustersInfo$intEdges / clustersInfo$degree, 0)
   if (max(clustersInfo$clustNo) == 0) {
     return(NULL)
   }
@@ -799,8 +809,13 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo = NULL, labels = FALSE, nod
       pts <- which(intvls == intvl)
       thetas[pts] <- 3 * intvl * pi / max(0.01, max(intvls)) + seq(0, 1.9 * pi, length = length(pts))
     }
-    sizes <- pmax(0.3, tmpclusterInfo$degree / max(tmpclusterInfo$degree))
-    opacity <- 0.25 + tmpclusterInfo$intEdges / tmpclusterInfo$degree
+    max_deg <- max(tmpclusterInfo$degree)
+    if (max_deg == 0) {
+      warning("plotCluster: all nodes in cluster ", clustNo, " have degree 0; cannot render plot")
+      return(invisible(NULL))
+    }
+    sizes <- pmax(0.3, tmpclusterInfo$degree / max_deg)
+    opacity <- ifelse(tmpclusterInfo$degree > 0, 0.25 + tmpclusterInfo$intEdges / tmpclusterInfo$degree, 0.25)
     opacity <- opacity / max(opacity)
     nodecol <- rgb(t(col2rgb(nodecol[ids]) / 255), alpha = opacity)
     plot(rads * cos(thetas), rads * sin(thetas),

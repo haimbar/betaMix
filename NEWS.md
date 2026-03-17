@@ -1,3 +1,46 @@
+# betaMix 0.2.7
+
+## Bug fixes
+
+- Fixed `getAdjMat()` in-memory path: now always returns a `Matrix` object
+  (was returning a base R matrix), consistent with the SQLite path and with
+  the `is(A, "Matrix")` requirement in `graphComponents()` and
+  `sphericalCaps()`.
+- Fixed `summarizeClusters()`: `intEdges / degree` no longer produces a
+  transient `NaN`/`Inf` vector before the zero-degree correction; replaced
+  with a single `ifelse()`.
+- Fixed `plotCluster()`: division by `max(degree)` and by per-node `degree`
+  are now guarded — emits a warning and returns `NULL` if all cluster nodes
+  have degree 0.
+- Fixed EM E-step (three sites): `p0f0_n / (p0f0_n + p1f1_n)` now guards
+  against a zero denominator (both beta densities underflow to 0) by treating
+  affected observations as null (`m0 = 1`) and issuing a warning.
+
+## Improvements
+
+- `betaMix()` now warns when constant (zero-variance) columns are detected
+  before calling `cor()`, identifying the offending column indices; their
+  correlations are set to 0 as before.
+
+## Defensive fixes in C++ (`writeLargeTable.cpp`)
+
+- `stdvec()`: added an early-return guard with a warning when standard
+  deviation is zero, preventing division by zero (safe by call-site contract,
+  but now self-documenting).
+- `corr()`: added guard against `n <= 1`, returning 0 with a warning instead
+  of dividing by `n - 1 = 0`.
+
+## Tests
+
+- Added `tests/testthat/test-degenerate-inputs.R` (21 tests) covering
+  all-zeros columns, all-ones columns, perfectly correlated column pairs,
+  and a combined scenario; verifies correct warning messages, NaN-free `m0`,
+  finite `ppthr`, and correct edge detection.
+- Fixed `test-getAdjMat.R` symmetry test: `t(adj)` on a `Matrix` object
+  dispatches to `t.default` via S3; fixed by converting to base matrix first.
+
+---
+
 # betaMix 0.2.6
 
 ## Bug fixes
