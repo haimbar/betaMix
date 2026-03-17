@@ -1,0 +1,6 @@
+# Windows build flags.
+# _fseeki64 is used directly in writeLargeTable.cpp (via pkg_fseek), so
+# _FILE_OFFSET_BITS is not strictly required here, but is included for
+# consistency and forward compatibility with any future fseeko usage.
+PKG_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
+PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)

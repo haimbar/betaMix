@@ -1,3 +1,30 @@
+# betaMix 0.2.10
+
+## Cross-platform portability fixes in C++ (`writeLargeTable.cpp`)
+
+- `calcCorr()`: changed `fopen()` modes from `"r"`/`"w"` to `"rb"`/`"wb"`.
+  The file format uses fixed-width records addressed by arithmetic byte offsets
+  via `fseek`. Text mode on Windows expands `\n` to `\r\n`, corrupting the
+  offset arithmetic and producing wrong correlations or a crash.
+- `calcCorr()`: replaced `fseek(fp, i * recSize, SEEK_SET)` (both calls) with
+  a new `pkg_fseek()` helper that uses `_fseeki64` on Windows and `fseeko`
+  (with `off_t`) elsewhere. The old `int × int` multiplication overflows for
+  `P × recSize > 2 × 10⁹`; `pkg_fseek` computes the offset as `long long`.
+- Added `src/Makevars.win` (mirrors `src/Makevars`) so Windows builds receive
+  explicit `-D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE` preprocessor flags.
+- Added `-D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE` to `src/Makevars`
+  (no-op on 64-bit Linux/macOS; ensures `off_t` is 64-bit on 32-bit POSIX).
+
+## Vignette
+
+- Corrected `ind` default description: was "FALSE (the default)", now correctly
+  states "TRUE (the default)".
+- Fixed copy-paste error: `adjMat2 <- getAdjMat(res1)` → `getAdjMat(res2)`.
+- Added section "Using Spearman's rank correlation" with a worked example.
+- Minor wording and formatting improvements.
+
+---
+
 # betaMix 0.2.9
 
 ## New features

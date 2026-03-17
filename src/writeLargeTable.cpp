@@ -5,6 +5,22 @@
 #include <numeric>
 #include <vector>
 
+// Cross-platform 64-bit file seek.
+// fseek() takes a `long` offset, which is 32-bit on Windows — arithmetic byte
+// offsets into large files would overflow. Use _fseeki64 on Windows and
+// fseeko (with 64-bit off_t enabled via _FILE_OFFSET_BITS=64) elsewhere.
+#ifdef _WIN32
+#include <io.h>
+static inline int pkg_fseek(FILE* fp, long long offset, int origin) {
+  return _fseeki64(fp, (__int64)offset, origin);
+}
+#else
+#include <sys/types.h>
+static inline int pkg_fseek(FILE* fp, long long offset, int origin) {
+  return fseeko(fp, (off_t)offset, origin);
+}
+#endif
+
 //[[Rcpp::depends(RcppArmadillo)]]
 using namespace Rcpp;
 
@@ -67,11 +83,11 @@ double corr(const NumericVector& x, const NumericVector& y, int n) {
 void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, double zeroSD = 1e-3, bool spearman = false) {
   FILE *finptr = NULL;
   FILE *foutptr = NULL;
-  finptr = fopen(fls[0], "r");
+  finptr = fopen(fls[0], "rb");
   if (finptr == NULL) {
     Rf_error("Cannot open input file: %s", (const char *)fls[0]);
   }
-  foutptr = fopen(fls[1], "w");
+  foutptr = fopen(fls[1], "wb");
   if (foutptr == NULL) {
     fclose(finptr);
     Rf_error("Cannot open output file: %s", (const char *)fls[1]);
@@ -82,7 +98,7 @@ void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, do
   NumericVector x1(n);
   NumericVector x2(n);
   for (int i = 0; i < P - 1; i++) {
-    fseek(finptr, i * recSize, SEEK_SET);
+    pkg_fseek(finptr, (long long)i * recSize, SEEK_SET);
     fread_discard(pname.data(), MaxNameLen, finptr);
     for (int j = 0; j < n; j++) {
       fread_discard(val.data(), numLen, finptr);
@@ -96,7 +112,7 @@ void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, do
     } else {
       stdvec(x1, n);
       for (int k = i + 1; k < P; k++) {
-        fseek(finptr, k * recSize, SEEK_SET);
+        pkg_fseek(finptr, (long long)k * recSize, SEEK_SET);
         fread_discard(pname.data(), MaxNameLen, finptr);
         for (int j = 0; j < n; j++) {
           fread_discard(val.data(), numLen, finptr);

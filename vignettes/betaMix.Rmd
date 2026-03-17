@@ -21,13 +21,15 @@ knitr::opts_chunk$set(
 
 
 The betaMix package is used to find edges in gene networks using co-expression data. The betaMix method is built on the insightful results of [@Frankl1990] who showed that two random vectors are approximately perpendicular with high probability, if the dimension of the space is sufficiently large. The pair-wise correlations between pairs of predictors are equal to the cosine of the angles between the pairs. From these angles we compute $z_j=\sin^2(\theta)$ and fit a mixture of two beta distributions. For pairs of random vectors (the null set) the distribution of $z_j$ is Beta((N-1)/2, 1/2), where N is the sample size. The nonnull set is assumed to follow a Beta(a,b) distribution, and using the EM algorithm we estimate a,b, and the proportion, p0, of the null set of pairs. The betaMix function determines a threshold which will control the error rate given by the user. Any $z_j$ below that threshold corresponds to a significantly correlated pair of predictors (an edge in the graphical model.)
-If the N samples can be assumed to be independent, set the parameter ind to TRUE. If it is set to FALSE (the default), the null set follows a Beta((nu-1)/2, 1/2) distribution and nu (the effective sample size) is estimated from the data.
+If the N samples can be assumed to be independent, set the parameter `ind` to `TRUE` (the default). If it is set to `FALSE`, the null set follows a Beta((nu-1)/2, 1/2) distribution and nu (the effective sample size) is estimated from the data.
+
+By default, betaMix uses Pearson's correlation to measure linear association between predictors. If the relationships of interest are monotone but not necessarily linear, Spearman's rank correlation can be requested via `method = "spearman"`. Both methods produce a $z_j$ statistic in $(0, 1)$ and are handled identically by the EM algorithm; the only difference is how the pairwise correlations are computed (Spearman computes Pearson's correlation on the column ranks). The chosen method is stored in the returned list as `$method`.
 
 The input to the program is a normalized expression matrix, with predictors/genes (which are the nodes in the graph) in the columns, and samples in the rows.
 
-With a large number of predictors, P, the estimation may be slow, so it is recommended to set the parameter subsamplesize to something smaller than choose(P,2). The minimum allowed by the program is 20,000. Using anything smaller will cause betaMix to fit the model to all choose(P,2) pairs. 
+With a large number of predictors, P, the estimation may be slow, so it is recommended to set the parameter `subsamplesize` to something smaller than `choose(P,2)`. The minimum allowed by the program is 20,000; using anything smaller will cause betaMix to fit the model to all `choose(P,2)` pairs.
 
-The betaMix package depends on the 'Matrix' package, to allow for efficient storage and computation of large co-occurrence matrices. If P is very large, the correlation matrix may require an unattainable amount of memory. For suc cases, the betaMix package has a procedure to store the correlation data in a SQLite database, thus never loading more than two columns into memory. For this purpose, the package depends on DBI and RSQLite. For the EM algorithm, betaMix requires the nleqslv package.
+The betaMix package depends on the 'Matrix' package, to allow for efficient storage and computation of large co-occurrence matrices. If P is very large, the correlation matrix may require an unattainable amount of memory. For such cases, the betaMix package has a procedure to store the correlation data in a SQLite database, thus never loading more than two columns into memory. For this purpose, the package depends on DBI and RSQLite. For the EM algorithm, betaMix requires the nleqslv package.
 
 
 # Real data examples
@@ -82,7 +84,7 @@ library("betaMix")
 data(SixHourImbibed)
 res2 <- betaMix(SixHourImbibed,ind=T)
 plotFittedBetaMix(res2)
-adjMat2 <- getAdjMat(res1)
+adjMat2 <- getAdjMat(res2)
 graphComp2 <- graphComponents(adjMat2,minCtr = 2,type=1)
 summarizeClusters(graphComp2)
 plotCluster(adjMat2, 3, graphComp2, labels=TRUE, nodecol = "red")
@@ -115,5 +117,20 @@ We  display the network of cluster 1, which shows that betaMix detects the corre
 ```{r echo=FALSE, out.width='45%'}
 knitr::include_graphics('./SimCluster1.png')
 ```
+
+# Using Spearman's rank correlation
+
+Spearman's correlation is recommended when the relationships between predictors are monotone but not linear. To use it, pass `method = "spearman"` to `betaMix()`. No other changes to the workflow are needed.
+
+```
+data(DrySeeds)
+res_spearman <- betaMix(DrySeeds, ind = TRUE, method = "spearman")
+res_spearman$method   # "spearman"
+adjMat_s <- getAdjMat(res_spearman)
+graphComp_s <- graphComponents(adjMat_s, minCtr = 2, type = 1)
+summarizeClusters(graphComp_s)
+```
+
+For the file-backed path (very large P), the same `method` argument is forwarded to `calcCorr()`, which ranks each column in place before the Pearson standardisation step, giving exact Spearman correlations without loading the full matrix into memory.
 
 # References
