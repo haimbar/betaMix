@@ -1,14 +1,16 @@
-# betaMix 0.2.12
+# betaMix 0.2.13
 
 ## Bug fixes
 
 - `betaMixReport()`: cluster summary table headers no longer spill across
-  columns in the PDF. Column names now use `kableExtra::linebreak()` to wrap
-  onto multiple lines inside each cell (`\makecell`), and
-  `kable_styling(latex_options = "scale_down")` is applied as a safety net for
-  very wide tables. `kableExtra` added to `Suggests`.
+  columns in the PDF. Long column names (`degreeMedian`, `pctInClstMedian`,
+  etc.) are replaced by short abbreviations (`Deg. Med.`, `Pct. Med.`, …) and
+  `kable_styling(latex_options = "scale_down")` is applied so the table always
+  fits within the page width.
 
 ---
+
+# betaMix 0.2.12
 
 # betaMix 0.2.11
 
