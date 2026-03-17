@@ -28,3 +28,6 @@ SimComp <- graphComponents(adjMat)
 plotDegCC(res, SimComp)
 }
 }
+\seealso{
+\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+}

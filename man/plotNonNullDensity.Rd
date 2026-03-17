@@ -30,3 +30,6 @@ res <- betaMix(betaMix::SIM, maxalpha = 1e-5, ppr = 0.01,
 plotNonNullDensity(res)
 }
 }
+\seealso{
+\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+}

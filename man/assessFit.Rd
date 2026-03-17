@@ -93,3 +93,6 @@ fit_diag <- assessFit(res)
 fit_diag$assessment
 }
 }
+\seealso{
+\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+}

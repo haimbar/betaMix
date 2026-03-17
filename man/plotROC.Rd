@@ -56,3 +56,6 @@ roc$tau_youden     # Youden-optimal threshold
 adjMat <- getAdjMat(res, ppthr = roc$tau_youden)
 }
 }
+\seealso{
+\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+}

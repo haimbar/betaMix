@@ -24,3 +24,6 @@ SimComp <- graphComponents(adjMat)
 (summtab <- summarizeClusters(SimComp))
 }
 }
+\seealso{
+\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+}

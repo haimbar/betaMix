@@ -1,0 +1,56 @@
+#' betaMix: Find Edges in Gene Networks Using Co-Expression Data
+#'
+#' The betaMix package fits a two-component beta mixture model to the matrix
+#' of all pairwise correlations (or Spearman rank correlations) among
+#' predictors/genes, and uses the fitted model to identify significantly
+#' correlated pairs (edges in the graphical model).
+#'
+#' @details
+#' The method exploits the result of Frankl & Wilson (1990) that two random
+#' vectors in high-dimensional space are nearly perpendicular with high
+#' probability.  Pairwise correlations equal the cosine of the angle between
+#' the corresponding column vectors; \eqn{z_j = \sin^2(\theta)} is computed
+#' for each pair and the vector \eqn{z_j} is modelled as a mixture of two
+#' Beta distributions.  Under the null (no association)
+#' \eqn{z_j \sim \text{Beta}((\hat{N}-1)/2,\, 0.5)}; correlated pairs
+#' follow \eqn{\text{Beta}(\hat{a}, \hat{b})} on the rescaled support
+#' \eqn{[0, b_{\max}]}.  The EM algorithm estimates all unknown parameters
+#' together with the proportion \eqn{p_0} of null pairs.
+#'
+#' \strong{Main functions}
+#' \tabular{ll}{
+#'   \code{\link{betaMix}}          \tab Fit the model and detect edges. \cr
+#'   \code{\link{assessFit}}        \tab Goodness-of-fit diagnostics (2x2 plot + verdict). \cr
+#'   \code{\link{plotFittedBetaMix}}\tab Overlay the fitted mixture on the z_j histogram. \cr
+#'   \code{\link{plotROC}}          \tab Model-based ROC curve. \cr
+#'   \code{\link{plotNonNullDensity}}\tab Kernel density of the non-null component. \cr
+#'   \code{\link{getAdjMat}}        \tab Build the adjacency matrix from a fitted model. \cr
+#'   \code{\link{graphComponents}}  \tab Cluster the network into connected components. \cr
+#'   \code{\link{summarizeClusters}}\tab Summary statistics for each cluster. \cr
+#'   \code{\link{plotCluster}}      \tab Visualise a single cluster network. \cr
+#'   \code{\link{plotDegCC}}        \tab Degree vs. clustering-coefficient plot. \cr
+#'   \code{\link{plotBitmapCC}}     \tab Adjacency-matrix bitmap ordered by cluster. \cr
+#'   \code{\link{collapsedGraph}}   \tab Collapse the network to cluster-level edges. \cr
+#'   \code{\link{clusteringCoef}}   \tab Per-node clustering coefficients. \cr
+#'   \code{\link{shortestPathDistance}} \tab Shortest-path distances. \cr
+#'   \code{\link{shortSummary}}     \tab Brief text summary of a fitted model. \cr
+#'   \code{\link{betaMixReport}}    \tab Render a self-contained PDF analysis report. \cr
+#'   \code{\link{calcCorr}}         \tab Compute correlations for the SQLite (large-P) path. \cr
+#'   \code{\link{sphericalCaps}}    \tab Compute spherical cap areas (internal helper). \cr
+#' }
+#'
+#' \strong{Datasets}
+#' \tabular{ll}{
+#'   \code{\link{DrySeeds}}       \tab Metabolomic profiles of 50 dry tomato seeds (N=50, P=68). \cr
+#'   \code{\link{SixHourImbibed}} \tab Metabolomic profiles of 50 seeds imbibed for 6 hours. \cr
+#'   \code{\link{SIM}}            \tab Simulated hub-structure dataset (N=50, P=1000). \cr
+#' }
+#'
+#' @references
+#' Frankl, P. & Wilson, R. M. (1981). Intersection theorems with geometric
+#' consequences. \emph{Combinatorica}, \bold{1}(4), 357--368.
+#'
+#' @docType package
+#' @name betaMix-package
+#' @aliases betaMix-package
+"_PACKAGE"

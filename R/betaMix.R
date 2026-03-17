@@ -44,6 +44,7 @@ NULL
 #' \item{cnt}{The number of EM iterations.}
 #' \item{method}{The correlation method used (\code{"pearson"} or \code{"spearman"}).}
 #' }
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @import DBI stats nleqslv
 #' @importFrom stats cor dbeta pbeta qbeta optimize
@@ -248,6 +249,7 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
 #' @param signed If TRUE, the returned matrix will contain -1 for negatively correlated pairs. Otherwise, all correlated pairs will have 1 in the returned matrix (Default).
 #' @param nodes An optional parameter which allows to create a sparse adjacency matrix containing only the neighbors of the selected nodes (default=NULL).
 #' @importFrom Matrix Matrix rowSums colSums diag
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{
@@ -402,6 +404,7 @@ etafun <- function(eta, sum_m0, sum_m0_logz) {
 #'   \item{tau_youden}{Threshold that maximises TPR \eqn{-} FPR.}
 #'   \item{tau_current}{Current threshold (\code{ppthr}) from the fitted model.}
 #' }
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @import stats graphics
 #' @examples
@@ -489,6 +492,7 @@ plotROC <- function(betaMixObj) {
 #'   \item{n_modes}{Integer number of detected density peaks.}
 #'   \item{peaks_x}{x-positions (on the \eqn{z_j} scale) of the detected peaks.}
 #' }
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @import graphics stats
 #' @examples
@@ -551,6 +555,7 @@ plotNonNullDensity <- function(betaMixObj) {
 #'
 #' @param betaMixObj An object returned from betaMix()
 #' @param yLim The maximum value on the y-axis (default=5)
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{
@@ -647,6 +652,7 @@ plotFittedBetaMix <- function(betaMixObj, yLim = 5) {
 #'   \item{assessment}{Overall character verdict: \code{"Good fit"},
 #'     \code{"Acceptable fit"}, or \code{"Deviations detected"}.}
 #' }
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @import stats graphics
 #' @examples
@@ -937,6 +943,7 @@ assessFit <- function(betaMixObj, yLim = 5, qq_purity = 0.9) {
 #' probability threshold, sample size, node count, maximum possible edges,
 #' detected edges, and estimated null proportion p0.
 #' @param betamixobj The object (list) returned from the betaMix function.
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{
@@ -977,6 +984,7 @@ shortSummary <- function(betamixobj) {
 #' }
 #' @importFrom Matrix Matrix rowSums diag
 #' @importFrom methods is
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{
@@ -1050,6 +1058,7 @@ sphericalCaps <- function(A) {
 #' \item{distCenter}{Standardized Manhattan distance to the central node.}
 #' }
 #' @importFrom methods is
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{
@@ -1121,6 +1130,7 @@ graphComponents <- function(A, minCtr = 5, type = 1) {
 #' Takes an object obtained from graphComponents and prints and returns summary statistics.
 #' @param clustersInfo Obtained from graphComponents.
 #' @return A matrix with cluster number, number of nodes, and fivenum summaries for the degrees of nodes in the cluster, and the percentage of edges that are within the cluster.
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{
@@ -1162,6 +1172,7 @@ summarizeClusters <- function(clustersInfo) {
 #' @param A An adjacency Matrix.
 #' @param clustersInfo Obtained from graphComponents
 #' @return A weighted adjacency matrix between clusters and unclustered nodes.
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{
@@ -1214,6 +1225,7 @@ collapsedGraph <- function(A, clustersInfo) {
 #'
 #' @param A an adjacency Matrix (0/1).
 #' @return A vector with the clustering coefficient of each node.
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{
@@ -1248,6 +1260,7 @@ clusteringCoef <- function(A) {
 #' @param betamixobj The object (list) returned by betaMix
 #' @param clusterInfo obtained from graphComponents. If not provided by the user, it will be computed on the fly.
 #' @param highlightNodes A vector of node-numbers which will be shown in red. Default is NULL.
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @import stats graphics
 #' @examples
@@ -1295,6 +1308,7 @@ plotDegCC <- function(betamixobj, clusterInfo = NULL, highlightNodes = NULL) {
 #' @param orderByCluster If FALSE, show the bitmap in the original node order.
 #'   If TRUE, show nodes by clusters, sorted by distance from the cluster center.
 #' @param showMinDegree Non-negative integer indicating the minimum degree of nodes that should be displayed. Default=0 (all nodes).
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{
@@ -1335,6 +1349,7 @@ plotBitmapCC <- function(AdjMat, clusterInfo = NULL, orderByCluster = FALSE, sho
 #'   value is given, all edges will be drawn using this color. If edgecols
 #'   contains two valid colors, the first is used for positive correlations and
 #'   the second for negative ones.
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @importFrom grDevices col2rgb colours rgb
 #' @examples
@@ -1417,6 +1432,7 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo = NULL, labels = FALSE, nod
 #' @param AdjMat An adjacency Matrix (0/1).
 #' @param numSteps The maximum number of edges between pairs of nodes. If numSteps=0, returns the input matrix. numSteps=1 adds neighbors of direct neighbors, etc.
 #' @return A Matrix containing the shortest path lengths between nodes i and j
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{

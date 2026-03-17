@@ -31,6 +31,7 @@
 #'   size falls in the range [5, 30]; if no cluster satisfies this, the
 #'   largest cluster overall is used.
 #' @return Invisibly, the path to the generated PDF file.
+#' @seealso \code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
 #' @export
 #' @examples
 #' \dontrun{

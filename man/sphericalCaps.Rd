@@ -35,3 +35,6 @@ am <- getAdjMat(res, signed = TRUE, nodes = caps$node[which(caps$capNum == 1)])
 plotCluster(am, 1, edgecols = c("blue", "red"), labels = TRUE)
 }
 }
+\seealso{
+\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+}

@@ -32,3 +32,6 @@ image(adjMat[1:80, 1:80])
 # See online documentation for usage when SQLite is used.
 }
 }
+\seealso{
+\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+}

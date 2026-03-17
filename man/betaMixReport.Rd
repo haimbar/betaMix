@@ -73,3 +73,6 @@ betaMixReport(SixHourImbibed, dataset_name = "SixHourImbibed",
               output_dir = "reports", ind = TRUE)
 }
 }
+\seealso{
+\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+}

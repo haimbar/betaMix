@@ -30,3 +30,6 @@ SimComp <- graphComponents(adjMat1)
 head(summarizeClusters(SimComp))
 }
 }
+\seealso{
+\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+}

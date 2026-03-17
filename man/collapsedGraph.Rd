@@ -31,3 +31,6 @@ Adj1 <- collapsedGraph(adjMat, SimComp) > 0
 # vertex.label.color='blue', edge.color='grey80',  asp=1)
 }
 }
+\seealso{
+\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+}
