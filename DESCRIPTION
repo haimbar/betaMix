@@ -1,7 +1,7 @@
 Package: betaMix
 Type: Package
 Title: Detect Edges in Co-Expression Graphs
-Version: 0.2.10
+Version: 0.2.11
 Authors@R: person(given = "Haim",
                   family = "Bar",
                   role = c("aut", "cre"),
@@ -13,6 +13,6 @@ License: GPL-2
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3
-Suggests: knitr, markdown, testthat (>= 3.0.0)
+Suggests: knitr, markdown, rmarkdown, testthat (>= 3.0.0)
 VignetteBuilder: knitr,markdown
 Depends: R (>= 4.0.0), DBI, nleqslv

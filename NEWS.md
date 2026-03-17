@@ -1,3 +1,32 @@
+# betaMix 0.2.11
+
+## New features
+
+- `betaMixReport()`: new exported function that runs the full betaMix analysis
+  pipeline on a data matrix and renders a self-contained PDF report.  The
+  report includes:
+  - Dataset overview (dimensions, variable names, summary statistics table for
+    P ≤ 30, or a distributional summary for larger P).
+  - Estimated model parameters table (â, b̂, η̂, p₀, τ).
+  - Explanation of the posterior probability threshold τ and the equivalent
+    minimum |r| required to declare an edge.
+  - `plotFittedBetaMix()`: histogram of z_ij with fitted null/non-null
+    components and the orange significance region.
+  - `plotDegCC()`: scatter of node degree vs. degree × clustering coefficient.
+  - `plotBitmapCC()`: adjacency bitmap ordered by cluster membership.
+  - `plotCluster()`: network plot for a representative cluster (the largest
+    cluster in the 5–30 node range; falls back to the globally largest cluster
+    when no cluster satisfies this criterion).
+  - A `rep_cluster` argument lets the user override the automatic selection.
+  - Output is written to `output_dir` (default `"reports/"`); the directory is
+    created automatically if absent.
+- Added `inst/report_template.Rmd` (parametrised Rmd used by `betaMixReport`).
+- Added `rmarkdown` to `Suggests` in `DESCRIPTION`.
+- Added `reports/`, `betaMix_*.pdf`, and related intermediate-file patterns to
+  `.gitignore`.
+
+---
+
 # betaMix 0.2.10
 
 ## Cross-platform portability fixes in C++ (`writeLargeTable.cpp`)

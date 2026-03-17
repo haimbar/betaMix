@@ -4,3 +4,11 @@ Meta
 .Rproj.user
 .DS_Store
 .Rhistory
+
+# betaMixReport output and intermediate files
+reports/
+betaMix_*.pdf
+betaMix_*.html
+betaMix_*.md
+*_files/
+betaMix_*.tar.gz

@@ -1,0 +1,240 @@
+---
+title: "betaMix Network Analysis: `r params$dataset_name`"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    fig_height: 4
+    fig_width: 6
+    latex_engine: pdflatex
+params:
+  dataset_name: "Dataset"
+  M: NULL
+  res: NULL
+  adjMat: NULL
+  graphComp: NULL
+  col_stats: NULL
+  rep_cluster: 1
+  signed: FALSE
+  nodecol: "steelblue"
+  edgecols: "grey55"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(betaMix)
+```
+
+---
+
+# Data Overview
+
+```{r data-dims}
+N  <- nrow(params$M)
+P  <- ncol(params$M)
+cn <- colnames(params$M)
+rn <- rownames(params$M)
+```
+
+The dataset **`r params$dataset_name`** contains **`r N`** samples (rows) and
+**`r P`** variables (columns).
+
+```{r col-names, results='asis'}
+if (!is.null(cn) && P <= 40) {
+  cat("\n**Variables:**", paste(cn, collapse = ", "), "\n")
+} else if (P > 40) {
+  cat(sprintf("\n*Variable names not shown (P = %d > 40); see summary table below.*\n", P))
+}
+if (!is.null(rn)) {
+  cat(sprintf("\nSample identifiers are present (e.g., %s).\n",
+              paste(head(rn, 3), collapse = ", ")))
+}
+```
+
+## Summary Statistics
+
+```{r col-stats, results='asis'}
+cs <- params$col_stats
+if (P <= 30) {
+  knitr::kable(round(cs, 4),
+               caption = "Per-variable summary statistics.")
+} else {
+  # Summarise the distribution of per-column statistics
+  six_stat <- function(x) c(min(x), quantile(x, 0.25), median(x),
+                              mean(x), quantile(x, 0.75), max(x))
+  stat_summary <- data.frame(
+    Quantity       = c("Minimum", "1st quartile", "Median", "Mean",
+                       "3rd quartile", "Maximum"),
+    `Column means` = round(six_stat(cs$Mean), 4),
+    `Column SDs`   = round(six_stat(cs$SD),   4),
+    check.names    = FALSE,
+    row.names      = NULL
+  )
+  knitr::kable(stat_summary,
+               caption = paste0("Distribution of per-column statistics across all ",
+                                P, " variables."))
+}
+```
+
+---
+
+# betaMix Model
+
+betaMix models the distribution of pairwise association statistics
+$z_{ij} = 1 - r_{ij}^2 \in (0,1)$ as a mixture of two beta distributions.
+Under the null (no association) $z_{ij} \sim \text{Beta}(\hat{\eta}, 0.5)$;
+correlated pairs follow $\text{Beta}(\hat{a}, \hat{b})$ on the rescaled support
+$[0, b_{\max}]$.
+
+## Estimated Parameters
+
+```{r model-params, results='asis'}
+res <- params$res
+param_tab <- data.frame(
+  Parameter = c(
+    "Sample size ($N$)",
+    "Number of variables ($P$)",
+    "Null proportion ($\\hat{p}_0$)",
+    "Non-null shape: $\\hat{a}$",
+    "Non-null shape: $\\hat{b}$",
+    "Effective sample size ($\\hat{\\eta}$)",
+    "Non-null support upper bound ($b_{\\max}$)",
+    "Posterior probability threshold",
+    "Edges detected",
+    "Correlation method"
+  ),
+  Value = c(
+    res$N,
+    res$nodes,
+    round(res$p0, 4),
+    round(res$ahat, 3),
+    round(res$bhat, 3),
+    round(res$etahat, 3),
+    res$bmax,
+    formatC(res$ppthr, format = "e", digits = 3),
+    prettyNum(res$edges, big.mark = ","),
+    res$method
+  )
+)
+knitr::kable(param_tab, col.names = c("Parameter", "Value"),
+             caption = "Estimated betaMix model parameters.")
+```
+
+## Edge Detection Threshold
+
+A variable pair $(i, j)$ is declared an **edge** when its association statistic
+$z_{ij} = 1 - r_{ij}^2$ falls below the posterior probability threshold:
+
+$$z_{ij} < \hat{\tau} = `r formatC(res$ppthr, format = "e", digits = 3)`$$
+
+This is equivalent to requiring $|r_{ij}| >
+`r round(sqrt(1 - res$ppthr), 4)`$.
+The threshold $\hat{\tau}$ is chosen to control the posterior probability that
+a declared edge is a false positive at the level $\text{ppr} = `r res$ppthr`$,
+subject to $\alpha \leq `r formatC(res$ppthr, format = "e", digits = 3)`$ (see
+`?betaMix` for details).
+
+## Fitted Mixture Model
+
+The histogram shows the distribution of $z_{ij}$ values (or a subsample when
+$P$ is large). The **green dashed** curve is the fitted null component
+$\hat{p}_0 \cdot \text{Beta}(\hat{\eta}, 0.5)$, the **red** curve is the
+non-null component, and the **blue** curve is the mixture. The
+**orange-shaded** region marks pairs whose $z_{ij}$ falls below the threshold
+— these are the detected edges.
+
+```{r plot-fitted, fig.height=4, fig.width=6, fig.cap="Fitted beta mixture model. The orange region contains significant (non-null) pairs."}
+plotFittedBetaMix(params$res)
+```
+
+---
+
+# Network Analysis
+
+```{r network-summary, results='asis'}
+res    <- params$res
+gc     <- params$graphComp
+nc     <- max(gc$clustNo)
+n_uncl <- sum(gc$clustNo == 0)
+cat(sprintf(
+  "The estimated network has **%s nodes** and **%s edges**",
+  prettyNum(res$nodes, big.mark = ","),
+  prettyNum(res$edges, big.mark = ",")))
+cat(sprintf(
+  " (out of %s possible pairs).\n",
+  prettyNum(choose(res$nodes, 2), big.mark = ",")))
+cat(sprintf(
+  "Graph decomposition (minimum cluster size = 2) yields **%d cluster(s)** and **%d unclustered node(s)**.\n",
+  nc, n_uncl))
+```
+
+## Cluster Summary
+
+```{r cluster-table, results='asis'}
+invisible(capture.output(clusterTab <- summarizeClusters(params$graphComp)))
+if (!is.null(clusterTab) && nrow(clusterTab) > 0) {
+  tab_display <- clusterTab
+  # Round proportions for readability
+  pct_cols <- grep("pctInClst", colnames(tab_display))
+  tab_display[, pct_cols] <- round(tab_display[, pct_cols], 3)
+  knitr::kable(tab_display,
+               caption = paste("Cluster summary.",
+                               "Degree columns report the five-number summary of",
+                               "node degree within each cluster.",
+                               "pctInClst columns report the proportion of each",
+                               "node's edges that remain within its cluster."),
+               row.names = FALSE)
+} else {
+  cat("*No clusters detected (all nodes are unclustered).*\n")
+}
+```
+
+## Degree vs. Clustering Coefficient
+
+Each point represents one node. The x-axis is node degree; the y-axis is the
+product degree × CC, where CC is the clustering coefficient (fraction of a
+node's neighbour pairs that are themselves connected). The green diagonal
+($y = x$) marks nodes with CC = 1 (all neighbours are mutually connected).
+
+```{r plot-degcc, fig.height=4, fig.width=5, fig.cap="Node degree vs. degree × clustering coefficient. The green line is the CC = 1 reference."}
+plotDegCC(params$res, params$graphComp)
+```
+
+## Adjacency Matrix
+
+Nodes are ordered by cluster membership. A black pixel at position $(i, j)$
+indicates a detected edge between nodes $i$ and $j$.
+
+```{r plot-bitmap, fig.height=4, fig.width=4, fig.cap="Adjacency matrix ordered by cluster. Black pixels are edges."}
+plotBitmapCC(params$adjMat, params$graphComp, orderByCluster = TRUE)
+```
+
+## Representative Cluster Network
+
+```{r cluster-info}
+rc        <- params$rep_cluster
+gc        <- params$graphComp
+n_in_rc   <- if (!is.na(rc)) sum(gc$clustNo == rc) else 0
+```
+
+```{r plot-cluster, fig.height=5, fig.width=5, fig.cap=paste0("Network of cluster ", rc, " (", n_in_rc, " nodes). Node size is proportional to degree; opacity reflects the fraction of a node's edges that lie within the cluster.")}
+if (!is.na(params$rep_cluster)) {
+  plotCluster(
+    params$adjMat,
+    params$rep_cluster,
+    params$graphComp,
+    labels   = TRUE,
+    nodecol  = params$nodecol,
+    edgecols = params$edgecols
+  )
+} else {
+  plot.new()
+  text(0.5, 0.5, "No clusters detected.", cex = 1.2)
+}
+```
+
+---
+
+*Report generated by the **betaMix** R package.*
+*`r R.version.string`, betaMix `r packageVersion("betaMix")`.*
