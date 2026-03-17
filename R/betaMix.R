@@ -445,7 +445,7 @@ sphericalCaps <- function(A) {
     return(NULL)
   }
   CC <- clusteringCoef(A)
-  retdf <- data.frame(matrix(vector(), 0, 5))
+  chunks <- list()
   orddeg <- order(deg, decreasing = TRUE)
   capNum <- 1
   while (length(orddeg) > 0 && max(deg[orddeg]) > 0) {
@@ -463,12 +463,13 @@ sphericalCaps <- function(A) {
       CC[c(capCtr, nbrs)]
     )
     rownames(tmpdf) <- sprintf("%s_%04d", rownames(tmpdf), tmpdf[, 2])
-    retdf <- rbind(retdf, tmpdf)
+    chunks[[capNum]] <- tmpdf
     capNum <- capNum + 1
     if (length(orddeg) == 0) {
       break
     }
   }
+  retdf <- as.data.frame(do.call(rbind, chunks))
   colnames(retdf) <- c("node", "capNum", "isCtr", "deg", "cc")
   return(retdf)
 }
@@ -586,10 +587,10 @@ summarizeClusters <- function(clustersInfo) {
   }
   tab <- matrix(0, nrow = max(clustersInfo$clustNo), ncol = 12)
   for (cnum in 1:max(clustersInfo$clustNo)) {
-    tmpclusterInfo <- clustersInfo[which(clustersInfo$clustNo == cnum), ]
+    idx <- clustersInfo$clustNo == cnum
     tab[cnum, ] <- c(
-      cnum, nrow(tmpclusterInfo), fivenum(tmpclusterInfo$degree),
-      fivenum(percentInCluster[which(clustersInfo$clustNo == cnum)])
+      cnum, sum(idx), fivenum(clustersInfo$degree[idx]),
+      fivenum(percentInCluster[idx])
     )
   }
   colnames(tab) <- c(
@@ -637,20 +638,17 @@ collapsedGraph <- function(A, clustersInfo) {
     rownames(A)[notInCluster],
     paste0("CLS", seq_len(nc_max))
   )
+  cluster_idx <- lapply(seq_len(nc_max), function(k) which(clustersInfo$clustNo == k))
+  ni <- length(notInCluster)
   for (i in seq_len(nc_max)) {
-    Ci <- which(clustersInfo$clustNo == i)
-    if (length(notInCluster) > 0) {
-      ni <- length(notInCluster)
-      Atmp <- matrix(A[notInCluster, which(clustersInfo$clustNo == i)],
-        nrow = ni, ncol = length(which(clustersInfo$clustNo == i))
-      )
+    Ci <- cluster_idx[[i]]
+    if (ni > 0) {
+      Atmp <- matrix(A[notInCluster, Ci], nrow = ni, ncol = length(Ci))
       collA[i + ni, seq_len(ni)] <- Matrix::rowSums(Atmp)
     }
     if (i < nc_max) {
-      ni <- length(notInCluster)
       for (j in (i + 1):nc_max) {
-        Cj <- which(clustersInfo$clustNo == j)
-        collA[i + ni, j + ni] <- sum(A[Ci, Cj])
+        collA[i + ni, j + ni] <- sum(A[Ci, cluster_idx[[j]]])
       }
     }
   }
@@ -823,19 +821,20 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo = NULL, labels = FALSE, nod
       xlab = "", ylab = "", col = nodecol, main = figtitle,
       ylim = c(min(rads * sin(thetas)), 1.1 * max(rads * sin(thetas)))
     )
+    edgecol <- rep(edgecols[1], ncol(tmpA))
+    has_neg_col <- length(edgecols) >= 2 && edgecols[2] %in% colours()
     for (i in seq_len(ncol(tmpA))) {
       nbrs <- setdiff(which(abs(tmpA[i, ]) == 1), seq_len(i))
       if (length(nbrs) > 0) {
-        edgecol <- rep(edgecols[1], ncol(tmpA))
-        if (length(edgecols) >= 2 && edgecols[2] %in% colours()) {
-          edgecol[nbrs[which(tmpA[i, nbrs] == -1)]] <- edgecols[2]
-        }
+        neg_nbrs <- if (has_neg_col) nbrs[which(tmpA[i, nbrs] == -1)] else integer(0)
+        edgecol[neg_nbrs] <- edgecols[2]
         for (j in nbrs) {
           lines(c(rads[i] * cos(thetas[i]), rads[j] * cos(thetas[j])),
             c(rads[i] * sin(thetas[i]), rads[j] * sin(thetas[j])),
             col = edgecol[j], lwd = 0.5
           )
         }
+        edgecol[neg_nbrs] <- edgecols[1]
       }
     }
     points(rads * cos(thetas), rads * sin(thetas), cex = sizes * 3, pch = 19, col = nodecol)
@@ -876,7 +875,7 @@ shortestPathDistance <- function(AdjMat, numSteps = 0) {
   if (numSteps == 0) {
     return(AdjMat)
   }
-  An <- Ap <- minDist <- AdjMat
+  Ap <- minDist <- AdjMat
   for (i in 1:numSteps) {
     An <- Ap %*% AdjMat
     if (sum((An | Ap) - (An & Ap)) == 0) {

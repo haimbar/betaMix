@@ -1,3 +1,32 @@
+# betaMix 0.2.8
+
+## Performance / memory
+
+- `sphericalCaps()`: replaced incremental `rbind()` inside the while-loop with
+  a pre-allocated list of chunks and a single `do.call(rbind, …)` at the end,
+  reducing peak memory from O(n²) to O(n) allocations.
+- `summarizeClusters()`: replaced per-cluster data-frame subset
+  (`clustersInfo[which(…), ]`) with a logical index vector, eliminating one
+  temporary frame copy per cluster.
+- `collapsedGraph()`: pre-computed all cluster-membership index vectors once
+  before the nested loops (`cluster_idx <- lapply(…)`); also hoisted the
+  invariant `ni <- length(notInCluster)` out of the outer loop. Removes
+  O(k²) repeated full-scan `which()` calls.
+- `plotCluster()`: moved `edgecol` allocation outside the per-node loop and
+  reset only the modified entries after each iteration, cutting per-iteration
+  allocation from O(n) to O(1).
+- `shortestPathDistance()`: removed the redundant third matrix copy in
+  `An <- Ap <- minDist <- AdjMat`; `An` is unconditionally overwritten on
+  the first line of the loop body.
+
+## Housekeeping
+
+- `benchmarks/benchmark.R`: removed stale comment and redundant
+  `Matrix(getAdjMat(…) * 1L)` double-wrapping; `getAdjMat()` already returns
+  a `Matrix` object since 0.2.7.
+
+---
+
 # betaMix 0.2.7
 
 ## Bug fixes

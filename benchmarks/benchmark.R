@@ -83,9 +83,8 @@ cat("\n  [pre-computing fitted models...]\n")
 res_dry <- betaMix(DrySeeds,  msg = FALSE)
 res_sim <- betaMix(SIM, msg = FALSE, maxalpha = 1e-6, ppr = 0.01)
 
-# getAdjMat returns a base logical matrix; graph functions need a Matrix object
-adj_dry <- Matrix(getAdjMat(res_dry) * 1L)
-adj_sim <- Matrix(getAdjMat(res_sim) * 1L)
+adj_dry <- getAdjMat(res_dry)
+adj_sim <- getAdjMat(res_sim)
 
 # ── 2. getAdjMat ──────────────────────────────────────────────────────────────
 sep("2. getAdjMat() -- adjacency matrix extraction")
