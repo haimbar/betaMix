@@ -32,5 +32,6 @@ Adj1 <- collapsedGraph(adjMat, SimComp) > 0
 }
 }
 \seealso{
-\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+\code{\link{betaMix-package}} for a package overview;
+  \code{help(package = "betaMix")} to browse the full function and dataset index.
 }

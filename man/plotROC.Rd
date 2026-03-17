@@ -36,8 +36,8 @@ assumed model.
 \details{
 Two reference thresholds are marked:
 \itemize{
-  \item \strong{Orange} — the current \code{ppthr} from \code{\link{betaMix}}.
-  \item \strong{Red} — the Youden-index optimum,
+  \item \strong{Orange} -- the current \code{ppthr} from \code{\link{betaMix}}.
+  \item \strong{Red} -- the Youden-index optimum,
     \eqn{\tau^* = \arg\max_\tau [\text{TPR}(\tau) - \text{FPR}(\tau)]},
     which maximises the sum of sensitivity and specificity.
 }
@@ -57,5 +57,6 @@ adjMat <- getAdjMat(res, ppthr = roc$tau_youden)
 }
 }
 \seealso{
-\code{\link{betaMix-package}} for an overview and index of all functions and datasets in this package.
+\code{\link{betaMix-package}} for a package overview;
+  \code{help(package = "betaMix")} to browse the full function and dataset index.
 }
