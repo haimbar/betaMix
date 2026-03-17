@@ -135,17 +135,30 @@ a declared edge is a false positive at the level $\text{ppr} = `r res$ppthr`$,
 subject to $\alpha \leq `r formatC(res$ppthr, format = "e", digits = 3)`$ (see
 `?betaMix` for details).
 
-## Fitted Mixture Model
+## Model Fit Assessment
 
-The histogram shows the distribution of $z_{ij}$ values (or a subsample when
-$P$ is large). The **green dashed** curve is the fitted null component
-$\hat{p}_0 \cdot \text{Beta}(\hat{\eta}, 0.5)$, the **red** curve is the
-non-null component, and the **blue** curve is the mixture. The
-**orange-shaded** region marks pairs whose $z_{ij}$ falls below the threshold
-— these are the detected edges.
+The 2×2 diagnostic panel below assesses how well the fitted mixture describes
+the data, followed by a printed verdict.
 
-```{r plot-fitted, fig.height=4, fig.width=6, fig.cap="Fitted beta mixture model. The orange region contains significant (non-null) pairs."}
-plotFittedBetaMix(params$res)
+- **Top-left**: fitted mixture histogram. The green dashed curve is the null
+  component $\hat{p}_0 \cdot \text{Beta}(\hat{\eta}, 0.5)$, the red curve is
+  the non-null component, the blue curve is the mixture, and the orange region
+  marks pairs below the threshold (detected edges).
+- **Top-right**: Q-Q plot for null-assigned observations ($m_0 \geq 0.5$)
+  vs $\text{Beta}(\hat{\eta}, 0.5)$. Points in blue indicate a good fit
+  (KS $D \leq 0.05$); red indicates a notable departure.
+- **Bottom-left**: Q-Q plot for non-null-assigned observations ($m_0 < 0.5$,
+  scaled by $b_{\max}$) vs $\text{Beta}(\hat{a}, \hat{b})$.
+- **Bottom-right**: kernel density of non-null $z_{ij}$ (blue) overlaid with
+  the fitted Beta density (red dashed). Orange dotted lines mark additional
+  modes when the non-null component appears multimodal.
+
+The KS $D$ statistic measures practical deviation; raw p-values are not used
+as the threshold because with tens of thousands of pairs even $D \approx 0.01$
+yields $p \approx 0$.
+
+```{r assess-fit, fig.height=7, fig.width=7, fig.cap="Goodness-of-fit diagnostics: fitted mixture (top-left), null Q-Q (top-right), non-null Q-Q (bottom-left), non-null kernel density vs fitted Beta (bottom-right). Blue points indicate good fit (KS D <= 0.05); red indicates notable departure."}
+assessFit(params$res)
 ```
 
 ---

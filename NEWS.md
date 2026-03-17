@@ -18,6 +18,11 @@
     or "Deviations detected".
   - Practical deviation threshold: KS D > 0.05 (not the raw p-value, which is
     unreliable for large numbers of pairs).
+- `betaMixReport()`: the "Fitted Mixture Model" section is replaced by a
+  "Model Fit Assessment" section that renders the `assessFit()` 2×2 panel
+  (7 × 7 in) together with the printed goodness-of-fit verdict.
+- Vignette: added "Goodness-of-fit assessment" section documenting
+  `assessFit()` and its four panels.
 
 ---
 

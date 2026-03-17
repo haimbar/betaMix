@@ -122,9 +122,9 @@ knitr::include_graphics('./SimCluster1.png')
 
 The `betaMixReport()` function runs the full pipeline and renders a
 self-contained PDF report in one call. The report includes a dataset overview,
-summary statistics, the fitted mixture model with its threshold, and all
-standard diagnostic plots (fitted mixture, degree vs. clustering coefficient,
-adjacency bitmap, and a representative cluster network).
+summary statistics, a 2×2 goodness-of-fit diagnostic panel (see
+`assessFit()` below), and all standard network plots (degree vs. clustering
+coefficient, adjacency bitmap, and a representative cluster network).
 
 ```
 library("betaMix")
@@ -141,6 +141,39 @@ automatically if it does not exist). Key options mirror those of `betaMix()`:
 `subsamplesize`. The `signed` argument passes signed edges to the cluster
 network plot, and `rep_cluster` lets you override the automatically chosen
 cluster.
+
+# Goodness-of-fit assessment
+
+After fitting the model, `assessFit()` produces a 2×2 diagnostic panel and a
+printed verdict describing how well the two-component Beta mixture fits the
+data.
+
+```
+assessFit(res1)
+```
+
+The four panels are:
+
+1. **Fitted mixture** — the standard histogram overlay with null component
+   (green dashed), non-null component (red), mixture (blue), and the orange
+   significance region.
+2. **Null Q-Q plot** — hard-assigned null observations ($m_0 \geq 0.5$) vs
+   $\text{Beta}(\hat{\eta}, 0.5)$. Points are blue when the KS $D$ statistic
+   is $\leq 0.05$ (good fit) and red otherwise. A notable departure from the
+   diagonal may indicate dependent samples; try `ind = FALSE` in that case.
+3. **Non-null Q-Q plot** — hard-assigned non-null observations ($m_0 < 0.5$),
+   scaled by $b_{\max}$, vs $\text{Beta}(\hat{a}, \hat{b})$. Systematic
+   curvature or red points suggest the non-null component is not well described
+   by a single Beta distribution.
+4. **Non-null kernel density** — the empirical density (blue) overlaid with
+   the fitted Beta density (red dashed). Orange dotted lines mark additional
+   modes when the non-null component appears multimodal.
+
+The printed assessment reports KS $D$ for both components, the number of
+detected modes, and an overall verdict (`"Good fit"`, `"Acceptable fit"`, or
+`"Deviations detected"`). The D statistic threshold is 0.05; raw p-values
+are not used because with tens of thousands of pairs even $D \approx 0.01$
+yields $p \approx 0$.
 
 # Using Spearman's rank correlation
 
