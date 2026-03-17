@@ -4,13 +4,22 @@
 \alias{assessFit}
 \title{Assess the goodness of fit of a betaMix model.}
 \usage{
-assessFit(betaMixObj, yLim = 5)
+assessFit(betaMixObj, yLim = 5, qq_purity = 0.9)
 }
 \arguments{
 \item{betaMixObj}{The list returned by \code{\link{betaMix}}.}
 
 \item{yLim}{The maximum y-axis value for panel 1 (passed to
 \code{\link{plotFittedBetaMix}}).  Default \code{5}.}
+
+\item{qq_purity}{Posterior probability threshold for the high-purity Q-Q
+subsets.  Only observations with \code{m0 >= qq_purity} are used for
+the null Q-Q panel, and only those with \code{m0 <= 1 - qq_purity} for
+the non-null panel.  The reference distribution in each case is the
+fitted Beta \emph{conditional on} the sub-range spanned by the pure
+subset, excluding the overlap region.  Must be in (0.5, 1).  Default
+\code{0.9}.  Falls back to hard assignment if fewer than 10
+observations pass.}
 }
 \value{
 Invisibly, a named list:
@@ -20,8 +29,18 @@ Invisibly, a named list:
   \item{ks_nonnull}{Result of \code{ks.test} for the non-null component
     (\code{NULL} if fewer than 2 non-null-assigned observations after
     boundary filtering).}
+  \item{ks_null_pure}{Conditional KS test for pure-null observations
+    (\code{m0 >= qq_purity}) vs \code{Beta(etahat, 0.5)} restricted to
+    their observed range.  \code{NULL} if fewer than 2 such observations.}
+  \item{ks_nonnull_pure}{Conditional KS test for pure-non-null observations
+    (\code{m0 <= 1 - qq_purity}, scaled by \code{bmax}) vs
+    \code{Beta(ahat, bhat)} restricted to their observed range.
+    \code{NULL} if fewer than 2 such observations.}
   \item{n_null}{Number of hard-assigned null observations.}
   \item{n_nonnull}{Number of hard-assigned non-null observations.}
+  \item{n_null_pure}{Number of pure-null observations (\code{m0 >= qq_purity}).}
+  \item{n_nonnull_pure}{Number of pure-non-null observations
+    (\code{m0 <= 1 - qq_purity}).}
   \item{n_modes}{Number of detected density peaks in the non-null component;
     \code{NA} if fewer than 10 non-null observations are available.}
   \item{assessment}{Overall character verdict: \code{"Good fit"},
@@ -36,10 +55,21 @@ the fitted two-component beta mixture describes the data.
 The four panels are:
 \enumerate{
   \item The standard \code{\link{plotFittedBetaMix}} histogram overlay.
-  \item Q-Q plot for the null component: hard-assigned observations
-    (\code{m0 >= 0.5}) vs \code{Beta(etahat, 0.5)}.
-  \item Q-Q plot for the non-null component: hard-assigned observations
-    (\code{m0 < 0.5}), scaled by \code{bmax}, vs \code{Beta(ahat, bhat)}.
+  \item Q-Q plot for the null component: observations with posterior null
+    probability \code{m0 >= qq_purity} (default 0.9), compared against
+    \code{Beta(etahat, 0.5)} \emph{conditional on} the sub-range spanned
+    by that pure-null subset.  Restricting to this high-purity upper tail
+    removes contamination from the overlap region with the non-null
+    component.  Falls back to all hard-assigned observations
+    (\code{m0 >= 0.5}) if fewer than 10 pass the threshold.
+  \item Q-Q plot for the non-null component: observations with posterior
+    non-null probability \code{m0 <= 1 - qq_purity} (default
+    \eqn{\le 0.1}), scaled by \code{bmax}, compared against
+    \code{Beta(ahat, bhat)} \emph{conditional on} the sub-range of the
+    pure-non-null subset.  Restricting to this high-purity lower tail
+    removes contamination from the right-side overlap with the null.
+    Falls back to all \code{m0 < 0.5} observations if fewer than 10
+    pass.
   \item Model-based ROC curve (see \code{\link{plotROC}}): FPR and TPR swept
     over all thresholds using the fitted Beta distributions.  The orange
     point marks the current threshold; the red point marks the Youden-index

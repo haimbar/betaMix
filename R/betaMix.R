@@ -58,6 +58,10 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
                     subsamplesize = 50000, seed = 912469, ind = TRUE, msg = TRUE,
                     method = c("pearson", "spearman")) {
   method <- match.arg(method)
+  if (!is.numeric(bmax) || length(bmax) != 1 || bmax <= 0 || bmax >= 1)
+    stop("betaMix: 'bmax' must be a single number in (0, 1); got bmax = ", bmax)
+  if (!is.numeric(calcAcc) || length(calcAcc) != 1 || calcAcc <= 0 || calcAcc >= 0.5)
+    stop("betaMix: 'calcAcc' must be a single number in (0, 0.5); got calcAcc = ", calcAcc)
   if (msg) cat("Generating the z_ij statistics...\n")
   if (!is.null(dbname)) {
     if (!file.exists(dbname)) {
@@ -83,6 +87,8 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
   } else {
     N <- nrow(M)
     P <- ncol(M)
+    if (N < 2) stop("betaMix: M must have at least 2 rows (samples); got N = ", N)
+    if (P < 2) stop("betaMix: M must have at least 2 columns (variables); got P = ", P)
     etahat <- (N - 1) / 2
     const_cols <- which(apply(M, 2, sd) == 0)
     if (length(const_cols) > 0) {
@@ -251,9 +257,9 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
 #' # See online documentation for usage when SQLite is used.
 #' }
 getAdjMat <- function(res, dbname = NULL, ppthr = NULL, signed = FALSE, nodes = NULL) {
-  if (any(nodes > res$nodes)) {
-    cat("Node number out of range. Max=", res$nodes, "\n")
-    return(NULL)
+  if (!is.null(nodes)) {
+    if (!is.numeric(nodes) || any(nodes < 1) || any(nodes > res$nodes))
+      stop("getAdjMat: 'nodes' must be integers in [1, ", res$nodes, "]")
   }
   if (is.null(ppthr)) {
     ppthr <- res$ppthr
@@ -577,10 +583,21 @@ plotFittedBetaMix <- function(betaMixObj, yLim = 5) {
 #' The four panels are:
 #' \enumerate{
 #'   \item The standard \code{\link{plotFittedBetaMix}} histogram overlay.
-#'   \item Q-Q plot for the null component: hard-assigned observations
-#'     (\code{m0 >= 0.5}) vs \code{Beta(etahat, 0.5)}.
-#'   \item Q-Q plot for the non-null component: hard-assigned observations
-#'     (\code{m0 < 0.5}), scaled by \code{bmax}, vs \code{Beta(ahat, bhat)}.
+#'   \item Q-Q plot for the null component: observations with posterior null
+#'     probability \code{m0 >= qq_purity} (default 0.9), compared against
+#'     \code{Beta(etahat, 0.5)} \emph{conditional on} the sub-range spanned
+#'     by that pure-null subset.  Restricting to this high-purity upper tail
+#'     removes contamination from the overlap region with the non-null
+#'     component.  Falls back to all hard-assigned observations
+#'     (\code{m0 >= 0.5}) if fewer than 10 pass the threshold.
+#'   \item Q-Q plot for the non-null component: observations with posterior
+#'     non-null probability \code{m0 <= 1 - qq_purity} (default
+#'     \eqn{\le 0.1}), scaled by \code{bmax}, compared against
+#'     \code{Beta(ahat, bhat)} \emph{conditional on} the sub-range of the
+#'     pure-non-null subset.  Restricting to this high-purity lower tail
+#'     removes contamination from the right-side overlap with the null.
+#'     Falls back to all \code{m0 < 0.5} observations if fewer than 10
+#'     pass.
 #'   \item Model-based ROC curve (see \code{\link{plotROC}}): FPR and TPR swept
 #'     over all thresholds using the fitted Beta distributions.  The orange
 #'     point marks the current threshold; the red point marks the Youden-index
@@ -598,6 +615,14 @@ plotFittedBetaMix <- function(betaMixObj, yLim = 5) {
 #' @param betaMixObj The list returned by \code{\link{betaMix}}.
 #' @param yLim The maximum y-axis value for panel 1 (passed to
 #'   \code{\link{plotFittedBetaMix}}).  Default \code{5}.
+#' @param qq_purity Posterior probability threshold for the high-purity Q-Q
+#'   subsets.  Only observations with \code{m0 >= qq_purity} are used for
+#'   the null Q-Q panel, and only those with \code{m0 <= 1 - qq_purity} for
+#'   the non-null panel.  The reference distribution in each case is the
+#'   fitted Beta \emph{conditional on} the sub-range spanned by the pure
+#'   subset, excluding the overlap region.  Must be in (0.5, 1).  Default
+#'   \code{0.9}.  Falls back to hard assignment if fewer than 10
+#'   observations pass.
 #' @return Invisibly, a named list:
 #' \describe{
 #'   \item{ks_null}{Result of \code{ks.test} for the null component
@@ -605,8 +630,18 @@ plotFittedBetaMix <- function(betaMixObj, yLim = 5) {
 #'   \item{ks_nonnull}{Result of \code{ks.test} for the non-null component
 #'     (\code{NULL} if fewer than 2 non-null-assigned observations after
 #'     boundary filtering).}
+#'   \item{ks_null_pure}{Conditional KS test for pure-null observations
+#'     (\code{m0 >= qq_purity}) vs \code{Beta(etahat, 0.5)} restricted to
+#'     their observed range.  \code{NULL} if fewer than 2 such observations.}
+#'   \item{ks_nonnull_pure}{Conditional KS test for pure-non-null observations
+#'     (\code{m0 <= 1 - qq_purity}, scaled by \code{bmax}) vs
+#'     \code{Beta(ahat, bhat)} restricted to their observed range.
+#'     \code{NULL} if fewer than 2 such observations.}
 #'   \item{n_null}{Number of hard-assigned null observations.}
 #'   \item{n_nonnull}{Number of hard-assigned non-null observations.}
+#'   \item{n_null_pure}{Number of pure-null observations (\code{m0 >= qq_purity}).}
+#'   \item{n_nonnull_pure}{Number of pure-non-null observations
+#'     (\code{m0 <= 1 - qq_purity}).}
 #'   \item{n_modes}{Number of detected density peaks in the non-null component;
 #'     \code{NA} if fewer than 10 non-null observations are available.}
 #'   \item{assessment}{Overall character verdict: \code{"Good fit"},
@@ -622,7 +657,7 @@ plotFittedBetaMix <- function(betaMixObj, yLim = 5) {
 #' fit_diag <- assessFit(res)
 #' fit_diag$assessment
 #' }
-assessFit <- function(betaMixObj, yLim = 5) {
+assessFit <- function(betaMixObj, yLim = 5, qq_purity = 0.9) {
   with(betaMixObj, {
 
     ## ── Hard assignment ───────────────────────────────────────────────────────
@@ -648,6 +683,46 @@ assessFit <- function(betaMixObj, yLim = 5) {
     } else {
       warning("assessFit: fewer than 2 non-null observations after boundary filtering; ",
               "non-null KS test skipped.")
+    }
+
+    ## ── High-purity subsets for conditional Q-Q plots ─────────────────────────
+    # Pure-null: observations firmly in the null (upper) tail, away from the
+    # non-null overlap.  Pure-non-null: observations firmly in the non-null
+    # (lower) tail, away from the null overlap.
+    null_pure_idx    <- which(m0 >= qq_purity)
+    nonnull_pure_idx <- which(m0 <= 1 - qq_purity)
+    n_null_pure      <- length(null_pure_idx)
+
+    z_nn_pure_raw  <- if (length(nonnull_pure_idx) > 0)
+                        z_j[nonnull_pure_idx] / bmax else numeric(0)
+    z_nn_pure      <- z_nn_pure_raw[z_nn_pure_raw > 1e-6 & z_nn_pure_raw < 1 - 1e-6]
+    n_nonnull_pure <- length(z_nn_pure)
+
+    # KS tests against the conditional (truncated) reference distribution.
+    ks_null_pure    <- NULL
+    null_D_pure     <- NA_real_
+    ks_nonnull_pure <- NULL
+    nonnull_D_pure  <- NA_real_
+
+    if (n_null_pure >= 2) {
+      z_np  <- sort(z_j[null_pure_idx])
+      p_low <- pbeta(z_np[1L], etahat, 0.5)
+      if (p_low < 1 - .Machine$double.eps) {
+        cond_null_cdf <- function(z)
+          (pbeta(z, etahat, 0.5) - p_low) / (1 - p_low)
+        ks_null_pure <- ks.test(z_np, cond_null_cdf)
+        null_D_pure  <- unname(ks_null_pure$statistic)
+      }
+    }
+
+    if (n_nonnull_pure >= 2) {
+      z_np   <- sort(z_nn_pure)
+      p_high <- pbeta(z_np[length(z_np)], ahat, bhat)
+      if (p_high > .Machine$double.eps) {
+        cond_nonnull_cdf <- function(z) pbeta(z, ahat, bhat) / p_high
+        ks_nonnull_pure  <- ks.test(z_np, cond_nonnull_cdf)
+        nonnull_D_pure   <- unname(ks_nonnull_pure$statistic)
+      }
     }
 
     ## ── Multimodality in non-null ─────────────────────────────────────────────
@@ -694,15 +769,38 @@ assessFit <- function(betaMixObj, yLim = 5) {
     title(main = "Fitted mixture", line = 0.5)
 
     ## Panel 2: Q-Q plot, null component
-    if (n_null >= 2) {
-      z_null_sorted <- sort(z_j[null_idx])
-      q_theo_null   <- qbeta(ppoints(n_null), etahat, 0.5)
-      col_null      <- if (!is.na(null_D) && null_D > 0.05) "tomato" else "steelblue"
+    # Prefer the pure-null (m0 >= qq_purity) conditional Q-Q; the reference
+    # distribution is Beta(etahat, 0.5) truncated to [z_min, 1] so the plot
+    # covers only the part of the null distribution free of non-null overlap.
+    use_null_pure <- n_null_pure >= 10
+    if (use_null_pure || n_null >= 2) {
+      if (use_null_pure) {
+        z_null_sorted <- sort(z_j[null_pure_idx])
+        n_qq_null     <- n_null_pure
+        # Conditional quantiles: spread ppoints uniformly over [p_low, 1]
+        p_low_qq      <- min(pbeta(z_null_sorted[1L], etahat, 0.5),
+                             1 - .Machine$double.eps * 100)
+        q_theo_null   <- qbeta(p_low_qq + ppoints(n_qq_null) * (1 - p_low_qq),
+                               etahat, 0.5)
+        d_null_show   <- null_D_pure
+        qq_note_null  <- sprintf("m0 >= %.2f  (n = %d of %d null-assigned)",
+                                 qq_purity, n_null_pure, n_null)
+      } else {
+        z_null_sorted <- sort(z_j[null_idx])
+        n_qq_null     <- n_null
+        q_theo_null   <- qbeta(ppoints(n_qq_null), etahat, 0.5)
+        d_null_show   <- null_D
+        qq_note_null  <- sprintf("m0 >= 0.50 (fallback, n = %d)", n_null)
+      }
+      col_null <- if (!is.na(d_null_show) && d_null_show > 0.05) "tomato" else "steelblue"
       plot(q_theo_null, z_null_sorted,
            pch = 16, cex = 0.4, col = col_null,
            xlab = sprintf("Theoretical quantiles  Beta(%.2f, 0.5)", etahat),
-           ylab = "Sample quantiles (null-assigned)",
-           main = sprintf("Q-Q: Null  (D = %.4f)", null_D))
+           ylab = "Sample quantiles (null)",
+           main = sprintf("Q-Q: Null  (D = %s)",
+                          if (is.na(d_null_show)) "NA"
+                          else sprintf("%.4f", d_null_show)))
+      mtext(qq_note_null, side = 3, line = 0.25, cex = 0.62, col = "grey35")
       abline(0, 1, lwd = 1.5, lty = 2, col = "grey40")
     } else {
       plot.new()
@@ -711,15 +809,37 @@ assessFit <- function(betaMixObj, yLim = 5) {
     }
 
     ## Panel 3: Q-Q plot, non-null component (scaled by bmax)
-    if (length(z_nn) >= 2) {
-      z_nn_sorted <- sort(z_nn)
-      q_theo_nn   <- qbeta(ppoints(length(z_nn_sorted)), ahat, bhat)
-      col_nn      <- if (!is.na(nonnull_D) && nonnull_D > 0.05) "tomato" else "steelblue"
+    # Prefer the pure-non-null (m0 <= 1 - qq_purity) conditional Q-Q; the
+    # reference distribution is Beta(ahat, bhat) truncated to [0, z_max] so
+    # the plot covers only the lower tail free of null overlap.
+    use_nonnull_pure <- n_nonnull_pure >= 10
+    if (use_nonnull_pure || length(z_nn) >= 2) {
+      if (use_nonnull_pure) {
+        z_nn_sorted  <- sort(z_nn_pure)
+        n_qq_nn      <- n_nonnull_pure
+        # Conditional quantiles: spread ppoints uniformly over [0, p_high]
+        p_high_qq    <- max(pbeta(z_nn_sorted[n_qq_nn], ahat, bhat),
+                            .Machine$double.eps * 100)
+        q_theo_nn    <- qbeta(ppoints(n_qq_nn) * p_high_qq, ahat, bhat)
+        d_nn_show    <- nonnull_D_pure
+        qq_note_nn   <- sprintf("m0 <= %.2f  (n = %d of %d non-null-assigned)",
+                                1 - qq_purity, n_nonnull_pure, length(z_nn))
+      } else {
+        z_nn_sorted  <- sort(z_nn)
+        n_qq_nn      <- length(z_nn)
+        q_theo_nn    <- qbeta(ppoints(n_qq_nn), ahat, bhat)
+        d_nn_show    <- nonnull_D
+        qq_note_nn   <- sprintf("m0 < 0.50 (fallback, n = %d)", n_qq_nn)
+      }
+      col_nn <- if (!is.na(d_nn_show) && d_nn_show > 0.05) "tomato" else "steelblue"
       plot(q_theo_nn, z_nn_sorted,
            pch = 16, cex = 0.4, col = col_nn,
            xlab = sprintf("Theoretical quantiles  Beta(%.2f, %.2f)", ahat, bhat),
            ylab = sprintf("Sample quantiles (non-null, z_j/%.3f)", bmax),
-           main = sprintf("Q-Q: Non-null  (D = %.4f)", nonnull_D))
+           main = sprintf("Q-Q: Non-null  (D = %s)",
+                          if (is.na(d_nn_show)) "NA"
+                          else sprintf("%.4f", d_nn_show)))
+      mtext(qq_note_nn, side = 3, line = 0.25, cex = 0.62, col = "grey35")
       abline(0, 1, lwd = 1.5, lty = 2, col = "grey40")
     } else {
       plot.new()
@@ -773,6 +893,13 @@ assessFit <- function(betaMixObj, yLim = 5) {
     if (nonnull_dev)
       cat("    Hint: non-null deviation may indicate a multimodal or",
           "heavy-tailed non-null distribution.\n")
+    cat(sprintf("  Conditional Q-Q (pure subsets, m0 >= %.2f / m0 <= %.2f):\n",
+                qq_purity, 1 - qq_purity))
+    cat(sprintf("    Null D = %s  (n = %d),  Non-null D = %s  (n = %d)\n",
+                if (is.na(null_D_pure))    "NA" else sprintf("%.4f", null_D_pure),
+                n_null_pure,
+                if (is.na(nonnull_D_pure)) "NA" else sprintf("%.4f", nonnull_D_pure),
+                n_nonnull_pure))
     if (!is.na(n_modes))
       cat(sprintf("  Non-null modes: %d  [%s]\n",
                   n_modes,
@@ -789,12 +916,16 @@ assessFit <- function(betaMixObj, yLim = 5) {
     cat("==========================================\n")
 
     invisible(list(
-      ks_null    = ks_null,
-      ks_nonnull = ks_nonnull,
-      n_null     = n_null,
-      n_nonnull  = n_nonnull,
-      n_modes    = n_modes,
-      assessment = assessment
+      ks_null         = ks_null,
+      ks_nonnull      = ks_nonnull,
+      ks_null_pure    = ks_null_pure,
+      ks_nonnull_pure = ks_nonnull_pure,
+      n_null          = n_null,
+      n_nonnull       = n_nonnull,
+      n_null_pure     = n_null_pure,
+      n_nonnull_pure  = n_nonnull_pure,
+      n_modes         = n_modes,
+      assessment      = assessment
     ))
   })
 }
@@ -1133,6 +1264,10 @@ plotDegCC <- function(betamixobj, clusterInfo = NULL, highlightNodes = NULL) {
   }
   cc0 <- clusterInfo$cc
   deg0 <- clusterInfo$degree
+  if (length(deg0) == 0 || max(deg0) == 0) {
+    warning("plotDegCC: no edges in graph — nothing to plot")
+    return(invisible(NULL))
+  }
   plot(deg0, deg0 * cc0,
     axes = FALSE, xlim = c(0, max(deg0)),
     ylim = c(0, 1.1 * max(deg0 * cc0)), main = "",
@@ -1295,6 +1430,8 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo = NULL, labels = FALSE, nod
 #' head(summarizeClusters(SimComp))
 #' }
 shortestPathDistance <- function(AdjMat, numSteps = 0) {
+  if (!is.numeric(numSteps) || length(numSteps) != 1 || numSteps != round(numSteps) || numSteps < 0)
+    stop("shortestPathDistance: 'numSteps' must be a non-negative integer; got ", numSteps)
   if (numSteps == 0) {
     return(AdjMat)
   }

@@ -31,6 +31,17 @@ static void fread_discard(void* buf, size_t size, FILE* fp) {
   (void)n;
 }
 
+// Parse a fixed-width character field as a double. Warns (once per call site)
+// if the string cannot be parsed, returning 0.0 in that case.
+static double safe_atof(const char* s, int var, int sample) {
+  char* endptr;
+  double v = strtod(s, &endptr);
+  if (endptr == s)
+    Rf_warning("calcCorr: could not parse value for variable %d, sample %d; treating as 0",
+               var, sample);
+  return v;
+}
+
 // Replace values with their ranks (average rank for ties). O(n log n).
 void rankVec(NumericVector& x, int n) {
   std::vector<int> idx(n);
@@ -81,6 +92,13 @@ double corr(const NumericVector& x, const NumericVector& y, int n) {
 //' @param spearman If TRUE, compute Spearman rank correlations instead of Pearson (Default=FALSE).
 // [[Rcpp::export]]
 void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, double zeroSD = 1e-3, bool spearman = false) {
+  if (n <= 0)
+    Rf_error("calcCorr: n must be positive; got n = %d", n);
+  if (P <= 1)
+    Rf_error("calcCorr: P must be >= 2; got P = %d", P);
+  if (recSize <= MaxNameLen + 1)
+    Rf_error("calcCorr: recSize (%d) must be > MaxNameLen + 1 (%d); check input file parameters",
+             recSize, MaxNameLen + 1);
   FILE *finptr = NULL;
   FILE *foutptr = NULL;
   finptr = fopen(fls[0], "rb");
@@ -102,7 +120,7 @@ void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, do
     fread_discard(pname.data(), MaxNameLen, finptr);
     for (int j = 0; j < n; j++) {
       fread_discard(val.data(), numLen, finptr);
-      x1[j] = atof(val.data());
+      x1[j] = safe_atof(val.data(), i + 1, j + 1);
     }
     if (spearman) rankVec(x1, n);
     if (sd(x1) < zeroSD) {
@@ -116,7 +134,7 @@ void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, do
         fread_discard(pname.data(), MaxNameLen, finptr);
         for (int j = 0; j < n; j++) {
           fread_discard(val.data(), numLen, finptr);
-          x2[j] = atof(val.data());
+          x2[j] = safe_atof(val.data(), k + 1, j + 1);
         }
         if (spearman) rankVec(x2, n);
         if (sd(x2) < zeroSD) {

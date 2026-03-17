@@ -175,24 +175,37 @@ The four panels are:
 1. **Fitted mixture** — the standard histogram overlay with null component
    (green dashed), non-null component (red), mixture (blue), and the orange
    significance region.
-2. **Null Q-Q plot** — hard-assigned null observations ($m_0 \geq 0.5$) vs
-   $\text{Beta}(\hat{\eta}, 0.5)$. Points are blue when the KS $D$ statistic
-   is $\leq 0.05$ (good fit) and red otherwise. A notable departure from the
-   diagonal may indicate dependent samples; try `ind = FALSE` in that case.
-3. **Non-null Q-Q plot** — hard-assigned non-null observations ($m_0 < 0.5$),
-   scaled by $b_{\max}$, vs $\text{Beta}(\hat{a}, \hat{b})$. Systematic
-   curvature or red points suggest the non-null component is not well described
-   by a single Beta distribution.
+2. **Null Q-Q plot** — *pure-null* observations ($m_0 \geq 0.9$ by default)
+   vs $\text{Beta}(\hat{\eta}, 0.5)$ **conditional on** the sub-range spanned
+   by those observations. By restricting to the upper tail of the null
+   distribution (small correlations, $z_{ij}$ near 1), where the posterior
+   probability of being null is high, contamination from the overlap with the
+   non-null component is excluded. Points are blue when the conditional KS $D$
+   statistic is $\leq 0.05$ (good fit) and red otherwise. A notable departure
+   may indicate dependent samples; try `ind = FALSE` in that case. Falls back
+   to all $m_0 \geq 0.5$ observations if fewer than 10 pass the threshold.
+3. **Non-null Q-Q plot** — *pure-non-null* observations ($m_0 \leq 0.1$ by
+   default), scaled by $b_{\max}$, vs $\text{Beta}(\hat{a}, \hat{b})$
+   **conditional on** the sub-range of those observations. Restricting to the
+   lower tail (high correlations, small $z_{ij}/b_{\max}$) removes the
+   right-side overlap where the null component dominates. Because the non-null
+   Beta is a convenience model, deviations in the overlap region do not affect
+   inference; this conditional Q-Q focuses on the region that does. Falls back
+   to all $m_0 < 0.5$ observations if fewer than 10 pass.
 4. **Model-based ROC curve** — sweeps $\tau$ from 0 to 1 using the fitted
    Beta distributions. The orange point marks the current threshold; the red
    point marks the Youden-index optimum $\tau^* = \arg\max_\tau [\text{TPR}(\tau) -
    \text{FPR}(\tau)]$.  The AUC summarises overall separability.
 
-The printed assessment reports KS $D$ for both components, the number of
-detected modes, and an overall verdict (`"Good fit"`, `"Acceptable fit"`, or
-`"Deviations detected"`). The D statistic threshold is 0.05; raw p-values
-are not used because with tens of thousands of pairs even $D \approx 0.01$
-yields $p \approx 0$.
+The printed assessment reports KS $D$ for both hard-assigned and pure-subset
+conditional tests, the number of detected modes, and an overall verdict
+(`"Good fit"`, `"Acceptable fit"`, or `"Deviations detected"`). The D
+statistic threshold is 0.05; raw p-values are not used because with tens of
+thousands of pairs even $D \approx 0.01$ yields $p \approx 0$.
+
+The `qq_purity` argument (default 0.9) controls the posterior probability
+threshold. A higher value gives a purer but smaller sample for each Q-Q panel;
+lower values include more of the overlap region.
 
 ## Model-based ROC curve
 

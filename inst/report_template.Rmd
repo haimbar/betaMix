@@ -144,11 +144,24 @@ the data, followed by a printed verdict.
   component $\hat{p}_0 \cdot \text{Beta}(\hat{\eta}, 0.5)$, the red curve is
   the non-null component, the blue curve is the mixture, and the orange region
   marks pairs below the threshold (detected edges).
-- **Top-right**: Q-Q plot for null-assigned observations ($m_0 \geq 0.5$)
-  vs $\text{Beta}(\hat{\eta}, 0.5)$. Points in blue indicate a good fit
-  (KS $D \leq 0.05$); red indicates a notable departure.
-- **Bottom-left**: Q-Q plot for non-null-assigned observations ($m_0 < 0.5$,
-  scaled by $b_{\max}$) vs $\text{Beta}(\hat{a}, \hat{b})$.
+- **Top-right**: Q-Q plot for *pure-null* observations ($m_0 \geq 0.9$),
+  compared against $\text{Beta}(\hat{\eta}, 0.5)$ **conditional on** the
+  sub-range spanned by those observations.  By restricting to the upper tail
+  of the null distribution (small correlations, $z_{ij}$ near 1), where the
+  posterior probability of being null is high, we avoid the overlap region
+  with the non-null component and assess the null fit where it matters for
+  inference.  Points in blue indicate a good conditional fit (KS $D \leq
+  0.05$); red indicates a notable departure.  Falls back to $m_0 \geq 0.5$
+  if fewer than 10 pure-null observations are available.
+- **Bottom-left**: Q-Q plot for *pure-non-null* observations ($m_0 \leq 0.1$,
+  scaled by $b_{\max}$), compared against $\text{Beta}(\hat{a}, \hat{b})$
+  **conditional on** the sub-range of the pure-non-null subset.  Restricting
+  to the lower tail of the non-null distribution (high correlations, small
+  $z_{ij}/b_{\max}$) removes the right-side overlap where the null component
+  dominates.  Because the non-null Beta is a convenience model, deviations
+  in the overlap region do not affect inference; the conditional Q-Q focuses
+  on the region that does.  Falls back to $m_0 < 0.5$ if fewer than 10
+  pure-non-null observations are available.
 - **Bottom-right**: model-based ROC curve sweeping $\tau$ from 0 to 1 using
   the fitted Beta distributions. The orange point marks the current threshold
   $\hat{\tau}$; the red point marks the Youden-index optimum
