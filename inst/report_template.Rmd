@@ -175,16 +175,27 @@ cat(sprintf(
 invisible(capture.output(clusterTab <- summarizeClusters(params$graphComp)))
 if (!is.null(clusterTab) && nrow(clusterTab) > 0) {
   tab_display <- clusterTab
-  # Round proportions for readability
   pct_cols <- grep("pctInClst", colnames(tab_display))
   tab_display[, pct_cols] <- round(tab_display[, pct_cols], 3)
+
+  col_labels <- c(
+    "Cluster", "Nodes",
+    "Degree\nMin", "Degree\nQ1", "Degree\nMedian", "Degree\nQ3", "Degree\nMax",
+    "Pct in\nCluster\nMin", "Pct in\nCluster\nQ1", "Pct in\nCluster\nMedian",
+    "Pct in\nCluster\nQ3", "Pct in\nCluster\nMax"
+  )
+
   knitr::kable(tab_display,
-               caption = paste("Cluster summary.",
-                               "Degree columns report the five-number summary of",
-                               "node degree within each cluster.",
-                               "pctInClst columns report the proportion of each",
-                               "node's edges that remain within its cluster."),
-               row.names = FALSE)
+               col.names = kableExtra::linebreak(col_labels, align = "c"),
+               escape    = FALSE,
+               booktabs  = TRUE,
+               row.names = FALSE,
+               caption   = paste("Cluster summary. Degree columns give the",
+                                 "five-number summary of node degree within each",
+                                 "cluster. Pct-in-Cluster columns give the",
+                                 "proportion of each node's edges that lie within",
+                                 "the cluster.")) |>
+    kableExtra::kable_styling(latex_options = c("hold_position", "scale_down"))
 } else {
   cat("*No clusters detected (all nodes are unclustered).*\n")
 }
