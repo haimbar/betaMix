@@ -1,0 +1,8 @@
+"dataset","rows","cols","pairs","betaMix_s","getAdjMat_s","getAdjMatS_s","clusterCoef_s","graphComp_s","summarize_s","spherCaps_s","total_s","timestamp","r_version","platform"
+"test_M_60x18",60,18,153,0,0,2e-04,0,0,NA,0,2e-04,"2026-03-16 20:27:23","4.5.1","aarch64-apple-darwin20"
+"test_M_60x25",60,25,300,3e-04,1e-04,2e-04,0,2e-04,NA,1e-04,9e-04,"2026-03-16 20:27:23","4.5.1","aarch64-apple-darwin20"
+"test_M_100x20",100,20,190,2e-04,1e-04,1e-04,0,2e-04,NA,1e-04,7e-04,"2026-03-16 20:27:23","4.5.1","aarch64-apple-darwin20"
+"DrySeeds",50,68,2278,0.0019,2e-04,8e-04,0.003,0.006,1e-04,0.004,0.0159,"2026-03-16 20:27:23","4.5.1","aarch64-apple-darwin20"
+"SixHourImbibed",50,68,2278,0.0017,2e-04,3e-04,0.003,0.0075,2e-04,0.004,0.0168,"2026-03-16 20:27:23","4.5.1","aarch64-apple-darwin20"
+"SIM_100cols",200,100,4950,0.0028,3e-04,9e-04,7e-04,0.007,2e-04,0.0012,0.0131,"2026-03-16 20:27:23","4.5.1","aarch64-apple-darwin20"
+"SIM_1000cols",200,1000,499500,0.153,0.01,0.027,0.005,0.083,0.0015,0.01,0.2895,"2026-03-16 20:27:23","4.5.1","aarch64-apple-darwin20"
