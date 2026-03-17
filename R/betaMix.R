@@ -23,6 +23,10 @@ NULL
 #' @param seed The random seed to use if selecting a subset with the subsamplesize parameter (default=912469).
 #' @param ind Whether the N samples should be assumed to be independent (default=TRUE).
 #' @param msg Whether to print intermediate output messages (default=TRUE).
+#' @param method Correlation method: \code{"pearson"} (default) or \code{"spearman"}.
+#'   Spearman's rank correlation is more robust to outliers and non-linear
+#'   monotone relationships. In the SQLite path this controls \code{calcCorr()};
+#'   in the in-memory path it is passed directly to \code{cor()}.
 #' @return A list with the following:
 #' \describe{
 #' \item{angleMat}{A PxP matrix with angles between pairs of vectors. If the correlation data is stored in SQLite, then the returned value is database name.}
@@ -38,6 +42,7 @@ NULL
 #' \item{nodes}{The number of nodes.}
 #' \item{edges}{The number of edges found.}
 #' \item{cnt}{The number of EM iterations.}
+#' \item{method}{The correlation method used (\code{"pearson"} or \code{"spearman"}).}
 #' }
 #' @export
 #' @import DBI stats nleqslv
@@ -50,7 +55,9 @@ NULL
 #' }
 betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-4,
                     ppr = 0.05, mxcnt = 200, ahat = 8, bhat = 3, bmax = 0.999,
-                    subsamplesize = 50000, seed = 912469, ind = TRUE, msg = TRUE) {
+                    subsamplesize = 50000, seed = 912469, ind = TRUE, msg = TRUE,
+                    method = c("pearson", "spearman")) {
+  method <- match.arg(method)
   if (msg) cat("Generating the z_ij statistics...\n")
   if (!is.null(dbname)) {
     if (!file.exists(dbname)) {
@@ -82,7 +89,7 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
       warning("betaMix: ", length(const_cols), " constant (zero-variance) column(s) detected at index ",
               paste(const_cols, collapse = ", "), "; their correlations will be set to 0")
     }
-    corM <- cor(M)
+    corM <- cor(M, method = method)
     if (any(is.na(corM))) {
       corM[is.na(corM)] <- 0
     }
@@ -216,7 +223,8 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
   if (msg) cat("Done.\n")
   list(
     angleMat = angleMat, z_j = z_j, m0 = m0, p0 = p0, N = N, ahat = ahat, bhat = bhat,
-    etahat = etahat, bmax = bmax, ppthr = ppthr, nodes = P, edges = edges, cnt = cnt
+    etahat = etahat, bmax = bmax, ppthr = ppthr, nodes = P, edges = edges, cnt = cnt,
+    method = method
   )
 }
 

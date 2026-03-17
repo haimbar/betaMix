@@ -18,7 +18,8 @@ betaMix(
   subsamplesize = 50000,
   seed = 912469,
   ind = TRUE,
-  msg = TRUE
+  msg = TRUE,
+  method = c("pearson", "spearman")
 )
 }
 \arguments{
@@ -51,6 +52,11 @@ all the data (default=50000).}
 \item{ind}{Whether the N samples should be assumed to be independent (default=TRUE).}
 
 \item{msg}{Whether to print intermediate output messages (default=TRUE).}
+
+\item{method}{Correlation method: \code{"pearson"} (default) or \code{"spearman"}.
+Spearman's rank correlation is more robust to outliers and non-linear
+monotone relationships. In the SQLite path this controls \code{calcCorr()};
+in the in-memory path it is passed directly to \code{cor()}.}
 }
 \value{
 A list with the following:
@@ -68,6 +74,7 @@ A list with the following:
 \item{nodes}{The number of nodes.}
 \item{edges}{The number of edges found.}
 \item{cnt}{The number of EM iterations.}
+\item{method}{The correlation method used (\code{"pearson"} or \code{"spearman"}).}
 }
 }
 \description{

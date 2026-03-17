@@ -1,3 +1,27 @@
+# betaMix 0.2.9
+
+## New features
+
+- `betaMix()` gains a `method` argument (`"pearson"` (default) or
+  `"spearman"`). Spearman's rank correlation is computed by passing
+  `method = "spearman"` to `cor()` in the in-memory path, and by ranking
+  each column in-place before standardisation in the C++ (`calcCorr()`)
+  file-backed path. Average ranks are used for ties. The chosen method is
+  stored in the returned list as `$method`.
+- `calcCorr()` gains a `spearman` argument (default `FALSE`). When `TRUE`,
+  columns are ranked via a new internal `rankVec()` helper (O(n log n),
+  average-rank tie handling) before Pearson standardisation, giving exact
+  Spearman correlations.
+
+## Tests
+
+- Added 6 tests for the `method` parameter: default is `"pearson"`, Spearman
+  is recorded correctly, valid list structure, `angleMat` differs between
+  methods, Spearman detects monotone non-linear relationships that Pearson
+  may miss, and invalid method values are rejected.
+
+---
+
 # betaMix 0.2.8
 
 ## Performance / memory

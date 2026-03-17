@@ -4,7 +4,7 @@
 \alias{calcCorr}
 \title{Calculate pairwise correlations and print to a file.}
 \usage{
-calcCorr(fls, MaxNameLen, recSize, P, n, zeroSD = 0.001)
+calcCorr(fls, MaxNameLen, recSize, P, n, zeroSD = 0.001, spearman = FALSE)
 }
 \arguments{
 \item{fls}{A character vector which includes the names of the input and output files.}
@@ -18,6 +18,8 @@ calcCorr(fls, MaxNameLen, recSize, P, n, zeroSD = 0.001)
 \item{n}{The sample size.}
 
 \item{zeroSD}{If the standard deviation of a column is below this threshold, this column will be considered as uncorrelated with all other columns (Default=1e-3).}
+
+\item{spearman}{If TRUE, compute Spearman rank correlations instead of Pearson (Default=FALSE).}
 }
 \description{
 Calculate pairwise correlations and print to a file.

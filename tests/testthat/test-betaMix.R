@@ -11,7 +11,7 @@ test_that("betaMix returns a list with all expected fields", {
   expect_named(
     res,
     c("angleMat", "z_j", "m0", "p0", "N", "ahat", "bhat",
-      "etahat", "bmax", "ppthr", "nodes", "edges", "cnt"),
+      "etahat", "bmax", "ppthr", "nodes", "edges", "cnt", "method"),
     ignore.order = TRUE
   )
 })
@@ -124,4 +124,60 @@ test_that("betaMix angleMat is a P x P matrix", {
   M <- matrix(rnorm(50 * 18), nrow = 50, ncol = 18)
   res <- betaMix(M, msg = FALSE)
   expect_equal(dim(res$angleMat), c(18L, 18L))
+})
+
+# ── method parameter ──────────────────────────────────────────────────────────
+
+test_that("betaMix default method is pearson", {
+  set.seed(20)
+  M <- matrix(rnorm(50 * 15), nrow = 50, ncol = 15)
+  res <- betaMix(M, msg = FALSE)
+  expect_equal(res$method, "pearson")
+})
+
+test_that("betaMix spearman method is recorded", {
+  set.seed(21)
+  M <- matrix(rnorm(50 * 15), nrow = 50, ncol = 15)
+  res <- betaMix(M, method = "spearman", msg = FALSE)
+  expect_equal(res$method, "spearman")
+})
+
+test_that("betaMix spearman returns valid list structure", {
+  set.seed(22)
+  M <- matrix(rnorm(50 * 15), nrow = 50, ncol = 15)
+  res <- betaMix(M, method = "spearman", msg = FALSE)
+  expect_type(res, "list")
+  expect_true(all(res$m0 >= 0 & res$m0 <= 1))
+  expect_true(is.finite(res$ppthr))
+  expect_false(any(is.nan(res$m0)))
+})
+
+test_that("betaMix spearman and pearson produce different angleMat", {
+  set.seed(23)
+  M <- matrix(rnorm(60 * 20), nrow = 60, ncol = 20)
+  # introduce a nonlinear monotone relationship to distinguish methods
+  M[, 1] <- M[, 2]^3
+  res_p <- betaMix(M, method = "pearson",  msg = FALSE)
+  res_s <- betaMix(M, method = "spearman", msg = FALSE)
+  expect_false(isTRUE(all.equal(res_p$angleMat, res_s$angleMat)))
+})
+
+test_that("betaMix spearman detects monotone non-linear relationship", {
+  set.seed(24)
+  n <- 80
+  M <- matrix(rnorm(n * 15), nrow = n, ncol = 15)
+  # perfect monotone (non-linear) relationship: Spearman = 1, Pearson < 1
+  M[, 3] <- exp(M[, 2])
+  res_s <- betaMix(M, method = "spearman", msg = FALSE, maxalpha = 0.05, ppr = 0.2)
+  res_p <- betaMix(M, method = "pearson",  msg = FALSE, maxalpha = 0.05, ppr = 0.2)
+  adj_s <- getAdjMat(res_s)
+  adj_p <- getAdjMat(res_p)
+  # Spearman should find the monotone edge (cols 2-3); Pearson may miss it
+  expect_true(as.logical(adj_s[2, 3]) || as.logical(adj_s[3, 2]))
+})
+
+test_that("betaMix rejects invalid method argument", {
+  set.seed(25)
+  M <- matrix(rnorm(50 * 10), nrow = 50, ncol = 10)
+  expect_error(betaMix(M, method = "kendall", msg = FALSE))
 })

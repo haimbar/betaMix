@@ -1,6 +1,8 @@
 #include <RcppArmadillo.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
+#include <numeric>
 #include <vector>
 
 //[[Rcpp::depends(RcppArmadillo)]]
@@ -11,6 +13,23 @@ using namespace Rcpp;
 static void fread_discard(void* buf, size_t size, FILE* fp) {
   size_t n = fread(buf, 1, size, fp);
   (void)n;
+}
+
+// Replace values with their ranks (average rank for ties). O(n log n).
+void rankVec(NumericVector& x, int n) {
+  std::vector<int> idx(n);
+  std::iota(idx.begin(), idx.end(), 0);
+  std::sort(idx.begin(), idx.end(), [&](int a, int b) { return x[a] < x[b]; });
+  std::vector<double> ranks(n);
+  int i = 0;
+  while (i < n) {
+    int j = i;
+    while (j < n - 1 && x[idx[j + 1]] == x[idx[j]]) j++;
+    double avg = (i + j) / 2.0 + 1.0;
+    for (int k = i; k <= j; k++) ranks[idx[k]] = avg;
+    i = j + 1;
+  }
+  for (int k = 0; k < n; k++) x[k] = ranks[k];
 }
 
 void stdvec(NumericVector& x, int n) {
@@ -43,8 +62,9 @@ double corr(const NumericVector& x, const NumericVector& y, int n) {
 //' @param P The number of predictors.
 //' @param n The sample size.
 //' @param zeroSD If the standard deviation of a column is below this threshold, this column will be considered as uncorrelated with all other columns (Default=1e-3).
+//' @param spearman If TRUE, compute Spearman rank correlations instead of Pearson (Default=FALSE).
 // [[Rcpp::export]]
-void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, double zeroSD = 1e-3) {
+void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, double zeroSD = 1e-3, bool spearman = false) {
   FILE *finptr = NULL;
   FILE *foutptr = NULL;
   finptr = fopen(fls[0], "r");
@@ -68,6 +88,7 @@ void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, do
       fread_discard(val.data(), numLen, finptr);
       x1[j] = atof(val.data());
     }
+    if (spearman) rankVec(x1, n);
     if (sd(x1) < zeroSD) {
       for (int j = i + 1; j < P; j++) {
         fprintf(foutptr, "%d|%d|0|0\n", i + 1, j + 1);
@@ -81,6 +102,7 @@ void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, do
           fread_discard(val.data(), numLen, finptr);
           x2[j] = atof(val.data());
         }
+        if (spearman) rankVec(x2, n);
         if (sd(x2) < zeroSD) {
           fprintf(foutptr, "%d|%d|0|0\n", i + 1, k + 1);
         } else {

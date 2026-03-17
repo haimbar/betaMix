@@ -9,7 +9,8 @@
 #' @param P The number of predictors.
 #' @param n The sample size.
 #' @param zeroSD If the standard deviation of a column is below this threshold, this column will be considered as uncorrelated with all other columns (Default=1e-3).
-calcCorr <- function(fls, MaxNameLen, recSize, P, n, zeroSD = 1e-3) {
-    invisible(.Call('_betaMix_calcCorr', PACKAGE = 'betaMix', fls, MaxNameLen, recSize, P, n, zeroSD))
+#' @param spearman If TRUE, compute Spearman rank correlations instead of Pearson (Default=FALSE).
+calcCorr <- function(fls, MaxNameLen, recSize, P, n, zeroSD = 1e-3, spearman = FALSE) {
+    invisible(.Call('_betaMix_calcCorr', PACKAGE = 'betaMix', fls, MaxNameLen, recSize, P, n, zeroSD, spearman))
 }
 
