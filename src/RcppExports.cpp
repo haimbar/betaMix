@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // calcCorr
-void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, double zeroSD);
-RcppExport SEXP _betaMix_calcCorr(SEXP flsSEXP, SEXP MaxNameLenSEXP, SEXP recSizeSEXP, SEXP PSEXP, SEXP nSEXP, SEXP zeroSDSEXP) {
+void calcCorr(CharacterVector fls, int MaxNameLen, int recSize, int P, int n, double zeroSD, bool spearman);
+RcppExport SEXP _betaMix_calcCorr(SEXP flsSEXP, SEXP MaxNameLenSEXP, SEXP recSizeSEXP, SEXP PSEXP, SEXP nSEXP, SEXP zeroSDSEXP, SEXP spearmanSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< CharacterVector >::type fls(flsSEXP);
@@ -22,13 +22,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type P(PSEXP);
     Rcpp::traits::input_parameter< int >::type n(nSEXP);
     Rcpp::traits::input_parameter< double >::type zeroSD(zeroSDSEXP);
-    calcCorr(fls, MaxNameLen, recSize, P, n, zeroSD);
+    Rcpp::traits::input_parameter< bool >::type spearman(spearmanSEXP);
+    calcCorr(fls, MaxNameLen, recSize, P, n, zeroSD, spearman);
     return R_NilValue;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_betaMix_calcCorr", (DL_FUNC) &_betaMix_calcCorr, 6},
+    {"_betaMix_calcCorr", (DL_FUNC) &_betaMix_calcCorr, 7},
     {NULL, NULL, 0}
 };
 

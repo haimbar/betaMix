@@ -5,6 +5,11 @@ Meta
 .DS_Store
 .Rhistory
 
+# Compiled build artifacts
+src/*.o
+src/*.so
+src/*.dll
+
 # betaMixReport output and intermediate files
 reports/
 betaMix_*.pdf
