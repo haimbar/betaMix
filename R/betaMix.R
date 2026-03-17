@@ -357,6 +357,115 @@ etafun <- function(eta, sum_m0, sum_m0_logz) {
 }
 
 
+#' Model-based ROC curve for edge-detection threshold selection.
+#'
+#' Computes and plots a model-based ROC curve by sweeping the edge-detection
+#' threshold \eqn{\tau} from 0 to 1.  At each \eqn{\tau}:
+#' \itemize{
+#'   \item \strong{FPR}(\eqn{\tau}) = P(z < \eqn{\tau} | null)
+#'         = \code{pbeta(tau, etahat, 0.5)}
+#'   \item \strong{TPR}(\eqn{\tau}) = P(z < \eqn{\tau} | non-null)
+#'         = \code{pbeta(min(tau, bmax) / bmax, ahat, bhat)}
+#' }
+#' No ground-truth labels are needed; both rates are derived entirely from the
+#' fitted model distributions.  The curve is therefore exact under the
+#' assumed model.
+#'
+#' Two reference thresholds are marked:
+#' \itemize{
+#'   \item \strong{Orange} — the current \code{ppthr} from \code{\link{betaMix}}.
+#'   \item \strong{Red} — the Youden-index optimum,
+#'     \eqn{\tau^* = \arg\max_\tau [\text{TPR}(\tau) - \text{FPR}(\tau)]},
+#'     which maximises the sum of sensitivity and specificity.
+#' }
+#' A grey vertical dotted line marks the FPR at \eqn{\tau = b_{\max}}; for
+#' \eqn{\tau > b_{\max}} the TPR is 1 (all non-null pairs detected) and the
+#' curve runs horizontally to (1, 1).
+#'
+#' @param betaMixObj The list returned by \code{\link{betaMix}}.
+#' @return Invisibly, a named list:
+#' \describe{
+#'   \item{tau}{Threshold grid (length 2001, from 0 to 1).}
+#'   \item{fpr}{False positive rate at each \eqn{\tau}.}
+#'   \item{tpr}{True positive rate at each \eqn{\tau}.}
+#'   \item{auc}{Area under the ROC curve (trapezoidal rule).}
+#'   \item{tau_youden}{Threshold that maximises TPR \eqn{-} FPR.}
+#'   \item{tau_current}{Current threshold (\code{ppthr}) from the fitted model.}
+#' }
+#' @export
+#' @import stats graphics
+#' @examples
+#' \dontrun{
+#' data(SIM, package = "betaMix")
+#' res <- betaMix(betaMix::SIM, maxalpha = 1e-5, ppr = 0.01,
+#'                subsamplesize = 30000, ind = TRUE)
+#' roc <- plotROC(res)
+#' roc$tau_youden     # Youden-optimal threshold
+#' # Apply the new threshold:
+#' adjMat <- getAdjMat(res, ppthr = roc$tau_youden)
+#' }
+plotROC <- function(betaMixObj) {
+  with(betaMixObj, {
+
+    tau_grid <- seq(0, 1, length.out = 2001)
+
+    # FPR from null; TPR from non-null (clamped at bmax)
+    fpr <- pbeta(tau_grid, etahat, 0.5)
+    tpr <- pbeta(pmin(tau_grid, bmax) / bmax, ahat, bhat)
+
+    # AUC via trapezoidal rule
+    auc <- sum(diff(fpr) * (tpr[-1L] + tpr[-length(tpr)]) / 2)
+
+    # Youden index: argmax(TPR - FPR)
+    j_idx      <- which.max(tpr - fpr)
+    tau_youden <- tau_grid[j_idx]
+    fpr_youden <- fpr[j_idx]
+    tpr_youden <- tpr[j_idx]
+
+    # Current threshold
+    fpr_cur <- pbeta(ppthr, etahat, 0.5)
+    tpr_cur <- pbeta(min(ppthr, bmax) / bmax, ahat, bhat)
+
+    plot(fpr, tpr, type = "l", lwd = 2, col = "steelblue",
+         xlim = c(0, 1), ylim = c(0, 1),
+         xlab = "False Positive Rate  P(z < tau | null)",
+         ylab = "True Positive Rate  P(z < tau | non-null)",
+         main = sprintf("Model-based ROC  (AUC = %.4f)", auc))
+    abline(0, 1, lty = 2, col = "grey60")
+    # mark where non-null support ends (tau = bmax)
+    abline(v = pbeta(bmax, etahat, 0.5), lty = 3, col = "grey70")
+
+    points(fpr_cur,    tpr_cur,    pch = 21, bg = "orange", cex = 1.8)
+    points(fpr_youden, tpr_youden, pch = 21, bg = "tomato", cex = 1.8)
+    legend("bottomright",
+           c(sprintf("Current  tau = %.3g  (FPR=%.3f, TPR=%.3f)",
+                     ppthr, fpr_cur, tpr_cur),
+             sprintf("Youden   tau = %.3g  (FPR=%.3f, TPR=%.3f)",
+                     tau_youden, fpr_youden, tpr_youden)),
+           pch = 21, pt.bg = c("orange", "tomato"), pt.cex = 1.4,
+           cex = 0.75, bty = "n")
+
+    cat("=== plotROC: Model-based ROC ===\n")
+    cat(sprintf("  AUC = %.4f\n", auc))
+    cat(sprintf("  Current  tau = %.4g  FPR = %.4f  TPR = %.4f  edges = %d\n",
+                ppthr, fpr_cur, tpr_cur, edges))
+    cat(sprintf("  Youden   tau = %.4g  FPR = %.4f  TPR = %.4f\n",
+                tau_youden, fpr_youden, tpr_youden))
+    cat("  To apply: getAdjMat(res, ppthr = roc$tau_youden)\n")
+    cat("================================\n")
+
+    invisible(list(
+      tau         = tau_grid,
+      fpr         = fpr,
+      tpr         = tpr,
+      auc         = auc,
+      tau_youden  = tau_youden,
+      tau_current = ppthr
+    ))
+  })
+}
+
+
 #' Plot the histogram of the z_j and the fitted mixture distribution.
 #'
 #' @param betaMixObj An object returned from betaMix()

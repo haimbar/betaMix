@@ -1,3 +1,21 @@
+# betaMix 0.2.16
+
+## New features
+
+- `plotROC()`: new exported function that computes and plots a model-based ROC
+  curve by sweeping the edge-detection threshold τ from 0 to 1.  FPR and TPR
+  are derived directly from the fitted Beta distributions — no ground-truth
+  labels are required.  Returns AUC, the Youden-index optimal threshold
+  (`tau_youden`), and the full (fpr, tpr, tau) grid so the user can apply any
+  operating point via `getAdjMat(res, ppthr = roc$tau_youden)`.
+- `betaMixReport()`: added ROC curve section ("ROC Curve and Threshold
+  Selection") after the model fit assessment, showing the current threshold
+  (orange), Youden optimum (red), and the FPR at the non-null support boundary
+  (grey dotted line).
+- Vignette: added "Model-based ROC curve" subsection documenting `plotROC()`.
+
+---
+
 # betaMix 0.2.15
 
 ## New features

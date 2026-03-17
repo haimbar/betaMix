@@ -122,9 +122,10 @@ knitr::include_graphics('./SimCluster1.png')
 
 The `betaMixReport()` function runs the full pipeline and renders a
 self-contained PDF report in one call. The report includes a dataset overview,
-summary statistics, a 2×2 goodness-of-fit diagnostic panel (see
-`assessFit()` below), and all standard network plots (degree vs. clustering
-coefficient, adjacency bitmap, and a representative cluster network).
+summary statistics, a 2×2 goodness-of-fit diagnostic panel (`assessFit()`),
+a model-based ROC curve with the Youden-index threshold (`plotROC()`), and
+all standard network plots (degree vs. clustering coefficient, adjacency
+bitmap, and a representative cluster network).
 
 ```
 library("betaMix")
@@ -174,6 +175,32 @@ detected modes, and an overall verdict (`"Good fit"`, `"Acceptable fit"`, or
 `"Deviations detected"`). The D statistic threshold is 0.05; raw p-values
 are not used because with tens of thousands of pairs even $D \approx 0.01$
 yields $p \approx 0$.
+
+## Model-based ROC curve
+
+The current threshold is set by `maxalpha` and `ppr`, which control Type I
+error and the posterior probability rate respectively. After fitting,
+`plotROC()` provides a complementary data-driven view: it sweeps $\tau$ from
+0 to 1 and plots the exact false- and true-positive rates implied by the
+fitted Beta distributions — no ground-truth labels are needed.
+
+```
+roc <- plotROC(res1)
+roc$auc            # overall separability
+roc$tau_youden     # Youden-index optimal threshold
+```
+
+The **Youden index** threshold $\tau^* = \arg\max_\tau [\text{TPR}(\tau) -
+\text{FPR}(\tau)]$ maximises the sum of sensitivity and specificity and can
+be passed to `getAdjMat()` if a different operating point is desired:
+
+```
+adjMat_youden <- getAdjMat(res1, ppthr = roc$tau_youden)
+```
+
+The AUC summarises the overall separability of the two components: AUC close
+to 1 means the null and non-null distributions barely overlap; AUC near 0.5
+means they are almost indistinguishable at any threshold.
 
 # Using Spearman's rank correlation
 
