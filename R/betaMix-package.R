@@ -71,6 +71,10 @@
 #' }
 #'
 #' @references
+#' Bar, H. & Wells, M. T. (2023). On graphical models and convex geometry.
+#' \emph{Computational Statistics & Data Analysis}, \bold{187}, 107800.
+#' \doi{10.1016/j.csda.2023.107800}
+#'
 #' Frankl, P. & Maehara, H. (1990). Some geometric applications of the beta
 #' distribution. \emph{Annals of the Institute of Statistical Mathematics},
 #' \bold{42}(3), 463--474.

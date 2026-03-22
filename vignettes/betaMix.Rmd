@@ -24,7 +24,8 @@ The betaMix package detects edges in co-expression networks from gene expression
 
 ## Statistical model
 
-The method is built on the geometric result of [@Frankl1990]: in high-dimensional space, two random (unassociated) vectors are nearly perpendicular with high probability.  The pairwise correlations equal the cosines of the angles between column vectors, and $z_j = \sin^2(\theta)$ is computed for each of the $P(P-1)/2$ pairs.  Under the null (no association), $z_j \sim \text{Beta}((N-1)/2,\, 1/2)$; correlated pairs follow $\text{Beta}(a, b)$ on a rescaled support $[0, b_{\max}]$.  A two-component beta mixture is fitted by the EM algorithm, simultaneously estimating $a$, $b$, and the null proportion $p_0$.
+The method is built on the geometric result of [@Frankl1990] and is described
+in detail in [@Bar2023]: in high-dimensional space, two random (unassociated) vectors are nearly perpendicular with high probability.  The pairwise correlations equal the cosines of the angles between column vectors, and $z_j = \sin^2(\theta)$ is computed for each of the $P(P-1)/2$ pairs.  Under the null (no association), $z_j \sim \text{Beta}((N-1)/2,\, 1/2)$; correlated pairs follow $\text{Beta}(a, b)$ on a rescaled support $[0, b_{\max}]$.  A two-component beta mixture is fitted by the EM algorithm, simultaneously estimating $a$, $b$, and the null proportion $p_0$.
 
 If the N samples can be assumed to be independent, set the parameter `ind` to `TRUE` (the default). If it is set to `FALSE`, the null distribution becomes $\text{Beta}((\nu-1)/2,\, 1/2)$ and the effective sample size $\nu$ is estimated from the data alongside the other parameters.
 
