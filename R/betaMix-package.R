@@ -6,7 +6,7 @@
 #' correlated pairs (edges in the graphical model).
 #'
 #' @details
-#' The method exploits the result of Frankl & Wilson (1990) that two random
+#' The method exploits the result of Frankl & Maehara (1990) that two random
 #' vectors in high-dimensional space are nearly perpendicular with high
 #' probability.  Pairwise correlations equal the cosine of the angle between
 #' the corresponding column vectors; \eqn{z_j = \sin^2(\theta)} is computed
@@ -25,7 +25,7 @@
 #'   \code{\link{plotROC}}          \tab Model-based ROC curve. \cr
 #'   \code{\link{plotNonNullDensity}}\tab Kernel density of the non-null component. \cr
 #'   \code{\link{getAdjMat}}        \tab Build the adjacency matrix from a fitted model. \cr
-#'   \code{\link{graphComponents}}  \tab Cluster the network into connected components. \cr
+#'   \code{\link{graphComponents}}  \tab Cluster the network using a greedy centrality-based algorithm. \cr
 #'   \code{\link{summarizeClusters}}\tab Summary statistics for each cluster. \cr
 #'   \code{\link{plotCluster}}      \tab Visualise a single cluster network. \cr
 #'   \code{\link{plotDegCC}}        \tab Degree vs. clustering-coefficient plot. \cr
@@ -47,8 +47,9 @@
 #' }
 #'
 #' @references
-#' Frankl, P. & Wilson, R. M. (1981). Intersection theorems with geometric
-#' consequences. \emph{Combinatorica}, \bold{1}(4), 357--368.
+#' Frankl, P. & Maehara, H. (1990). Some geometric applications of the beta
+#' distribution. \emph{Annals of the Institute of Statistical Mathematics},
+#' \bold{42}(3), 463--474.
 #'
 #' @docType package
 #' @name betaMix-package

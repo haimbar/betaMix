@@ -29,7 +29,7 @@ NULL
 #'   in the in-memory path it is passed directly to \code{cor()}.
 #' @return A list with the following:
 #' \describe{
-#' \item{angleMat}{A PxP matrix with angles between pairs of vectors. If the correlation data is stored in SQLite, then the returned value is database name.}
+#' \item{angleMat}{A P×P matrix of Pearson (or Spearman) correlations between all pairs of variables.  Note: despite the name, this stores correlations (r), not angles; \eqn{z_j = 1 - r^2} is used internally to avoid redundant trigonometric calls.  When the SQLite path is used (\code{dbname} is provided), this field contains the database filename rather than the matrix.}
 #' \item{z_j}{The statistics z_j=sin^2(angles).}
 #' \item{m0}{The posterior null probabilities.}
 #' \item{p0}{The estimated probability of the null component.}
@@ -38,7 +38,7 @@ NULL
 #' \item{N}{The sample size.}
 #' \item{etahat}{If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
 #' \item{bmax}{The user-defined right-hand side of the support of the non-null component.}
-#' \item{ppthr}{The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
+#' \item{ppthr}{The z_j threshold below which pairs are declared significant edges.  Computed as the larger of (a) \code{qbeta(maxalpha, etahat, 0.5)} (frequentist Type I error bound) and (b) \code{max(z_j[m0 < ppr])} (Bayesian posterior probability bound), so both error criteria are simultaneously satisfied.}
 #' \item{nodes}{The number of nodes.}
 #' \item{edges}{The number of edges found.}
 #' \item{cnt}{The number of EM iterations.}
@@ -253,6 +253,11 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
 #' @param ppthr A threshold to select edges. Default=NULL, in which case the returned value from betaMix() is used (available in res).
 #' @param signed If TRUE, the returned matrix will contain -1 for negatively correlated pairs. Otherwise, all correlated pairs will have 1 in the returned matrix (Default).
 #' @param nodes An optional parameter which allows to create a sparse adjacency matrix containing only the neighbors of the selected nodes (default=NULL).
+#' @return A sparse \code{Matrix} object of dimension P×P (or a submatrix when
+#'   \code{nodes} is specified).  Entries are \code{1} for detected edges
+#'   (\code{0} on the diagonal and for non-edges).  When \code{signed = TRUE},
+#'   negatively correlated edges are represented by \code{-1}.  Returns
+#'   \code{NULL} if no edges are selected (SQLite path only).
 #' @importFrom Matrix Matrix rowSums colSums diag
 #' @seealso \code{\link{betaMix-package}} for a package overview;
 #'   \code{help(package = "betaMix")} to browse the full function and dataset index.
@@ -563,10 +568,22 @@ plotNonNullDensity <- function(betaMixObj) {
 }
 
 
-#' Plot the histogram of the z_j and the fitted mixture distribution.
+#' Plot the histogram of the z_j statistics with the fitted mixture overlay.
 #'
-#' @param betaMixObj An object returned from betaMix()
-#' @param yLim The maximum value on the y-axis (default=5)
+#' Plots a histogram of the \eqn{z_j = \sin^2(\theta)} statistics with four
+#' overlaid curves and a shaded significance region:
+#' \itemize{
+#'   \item \strong{Green dashed} -- null component: \eqn{p_0 \cdot \text{Beta}(\hat{\eta}, 0.5)}.
+#'   \item \strong{Red} -- non-null component: \eqn{(1-p_0) \cdot \text{Beta}(\hat{a}, \hat{b}) / b_{\max}}.
+#'   \item \strong{Blue} -- fitted mixture (sum of the two components above).
+#'   \item \strong{Orange rectangle} -- significance region \eqn{z_j \le \hat{\tau}} (\code{ppthr}); pairs
+#'     falling here are declared significant edges.
+#' }
+#'
+#' @param betaMixObj The list returned by \code{\link{betaMix}}.
+#' @param yLim The maximum value on the y-axis (default=5).  Increase if the
+#'   null component is clipped.
+#' @return Invisibly \code{NULL}.
 #' @seealso \code{\link{betaMix-package}} for a package overview;
 #'   \code{help(package = "betaMix")} to browse the full function and dataset index.
 #' @export
@@ -983,11 +1000,15 @@ shortSummary <- function(betamixobj) {
 }
 
 
-#' Find spherical caps with more than one node.
+#' Find hub-like subgraphs (spherical caps) in the network.
 #'
-#' Takes a PxP adjacency Matrix as input and find spherical caps with more than
-#' one node in R^n. Cap centers can only appear in one cap, but other nodes are
-#' allowed to appear in multiple caps.
+#' Identifies hub structures in the network graph by greedily selecting
+#' high-degree nodes as cap centers.  Each center and all its direct neighbors
+#' form a "cap".  Centers are chosen in decreasing degree order and each node
+#' can serve as a center at most once; however, non-center nodes may appear in
+#' multiple caps if they are neighbors of several centers.  Conceptually, each
+#' hub corresponds to a spherical cap in the high-dimensional space underlying
+#' the beta-mixture model.
 #' @param A An adjacency Matrix(0/1), zeros on the main diagonal.
 #' @return A data frame with the following columns:
 #' \describe{
@@ -1326,8 +1347,10 @@ plotDegCC <- function(betamixobj, clusterInfo = NULL, highlightNodes = NULL) {
 #' them in increasing degree order (from left to right).
 #' @param AdjMat An adjacency Matrix (0/1).
 #' @param clusterInfo obtained from graphComponents. If not provided by the user, it will be computed on the fly.
-#' @param orderByCluster If FALSE, show the bitmap in the original node order.
-#'   If TRUE, show nodes by clusters, sorted by distance from the cluster center.
+#' @param orderByCluster If \code{FALSE}, show the bitmap in the original node
+#'   order.  If \code{TRUE}, show nodes by clusters, sorted by distance from
+#'   the cluster center.  Note: if \code{clusterInfo} is provided this
+#'   argument is ignored and cluster ordering is always applied.
 #' @param showMinDegree Non-negative integer indicating the minimum degree of nodes that should be displayed. Default=0 (all nodes).
 #' @seealso \code{\link{betaMix-package}} for a package overview;
 #'   \code{help(package = "betaMix")} to browse the full function and dataset index.
@@ -1453,7 +1476,11 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo = NULL, labels = FALSE, nod
 #' Returns a matrix whose entry (i,j) is the minimum number of steps from node
 #' i to node j, considering paths up to numSteps edges long.
 #' @param AdjMat An adjacency Matrix (0/1).
-#' @param numSteps The maximum number of edges between pairs of nodes. If numSteps=0, returns the input matrix. numSteps=1 adds neighbors of direct neighbors, etc.
+#' @param numSteps The number of additional hops beyond direct neighbors to
+#'   include.  \code{numSteps=0} returns the input matrix unchanged (direct
+#'   edges only, path length 1).  \code{numSteps=1} additionally includes paths
+#'   of length 2 (neighbors of neighbors); \code{numSteps=k} includes all paths
+#'   up to length \eqn{k+1}.
 #' @return A Matrix containing the shortest path lengths between nodes i and j
 #' @seealso \code{\link{betaMix-package}} for a package overview;
 #'   \code{help(package = "betaMix")} to browse the full function and dataset index.
@@ -1515,11 +1542,12 @@ NULL
 
 #' Simulated gene Expression data using the huge package
 #'
-#' SIM is a simulated dataset with a hub structure, consisting of 1000 nodes and 50 hubs.
+#' SIM is a simulated dataset with a hub structure, consisting of 1000 nodes (variables),
+#' 200 samples, and 50 hubs.
 #'
 #' @docType data
 #' @keywords datasets
 #' @name SIM
 #' @usage data(SIM,package = "betaMix")
-#' @format A 1000 by 200 matrix, representing 50 hubs
+#' @format A matrix with 200 rows (samples) and 1000 columns (variables/nodes), representing 50 hubs
 NULL
