@@ -122,10 +122,10 @@ plotBitmapCC(adjMat, graphComp)
 | maxalpha | 1e-4 | Frequentist Type I error bound per pair.  Use 1e-6 for P > 1000 |
 | ppr | 0.05 | Bayesian posterior probability threshold (posterior prob of null < ppr to call an edge) |
 | method | "pearson" | Correlation method: "pearson" or "spearman" |
-| subsamplesize | choose(P,2) | Pairs subsampled for EM fitting.  Must be ≥ 20000; recommended 30000–50000 when P > 500 |
+| subsamplesize | 50000 | Pairs subsampled for EM fitting.  Must be ≥ 20000; recommended 30000–50000 when P > 500 |
 | bmax | 0.999 | Upper bound of non-null support [0, bmax].  Rarely needs changing |
 | ahat, bhat | 8, 3 | Initial values for the non-null Beta parameters |
-| seed | NULL | Random seed for reproducibility of subsampling |
+| seed | 912469 | Random seed for reproducibility of subsampling |
 | msg | FALSE | Print EM iteration progress |
 
 **Returns** a named list:
@@ -141,7 +141,7 @@ plotBitmapCC(adjMat, graphComp)
 | `m0` | Vector of posterior null probabilities for each pair |
 | `z_j` | Vector of z_ij statistics for each pair |
 | `method` | "pearson" or "spearman" |
-| `nodes` | Column names of M (variable/gene names) |
+| `nodes` | Number of nodes P (integer count, not names) |
 
 ### `getAdjMat(res, ...)` — build the adjacency matrix
 
@@ -176,11 +176,14 @@ TPR - FPR and can be passed to `getAdjMat(res, ppthr = roc$tau_youden)`.
 | Parameter | Default | Meaning |
 |---|---|---|
 | A | (required) | Adjacency matrix (0/1 or signed) from `getAdjMat()` |
-| minCtr | 2 | Minimum cluster size to report |
+| minCtr | 5 | Minimum centrality value for a node to be considered a cluster center |
 | type | 1 | Centrality score formula (1 = degree × clustering coefficient) |
 
-Returns a data frame with columns: node, cluster, degree, clusteringCoef,
-iscenter, labels.  Nodes with degree 0 are "unclustered".
+Returns a data frame with one row per node and columns: `labels` (node
+name), `degree`, `cc` (clustering coefficient), `ctr` (centrality score),
+`clustNo` (cluster number, 0 = unclustered), `iscenter` (1 if cluster
+center), `intEdges` (edges within cluster), `extEdges` (edges to other
+clusters), `distCenter` (standardised Manhattan distance to cluster center).
 
 ### `summarizeClusters(clustersInfo)` — summary statistics per cluster
 
@@ -324,8 +327,9 @@ adjMat <- getAdjMat(res, ppthr = roc$tau_youden)
 ### Node-subset adjacency matrix
 
 ```r
-hub_genes <- c("BRCA1", "TP53", "MYC")
-subMat <- getAdjMat(res, nodes = hub_genes)
+# nodes takes integer column indices, not names
+hub_idx <- which(colnames(M) %in% c("BRCA1", "TP53", "MYC"))
+subMat  <- getAdjMat(res, nodes = hub_idx)
 ```
 
 ### Expand to 2-hop neighbors
