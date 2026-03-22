@@ -6,6 +6,15 @@ regression-based network methods is that it fits **a single model** to all
 P(P-1)/2 pairs simultaneously, rather than running P separate penalized
 regressions.
 
+## Installation
+
+betaMix is available from GitHub (not CRAN):
+
+```r
+# install.packages("remotes")  # if not already installed
+remotes::install_github("haimbar/betaMix")
+```
+
 ---
 
 ## When to prefer betaMix over LASSO-based methods
