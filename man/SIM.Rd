@@ -5,12 +5,13 @@
 \alias{SIM}
 \title{Simulated gene Expression data using the huge package}
 \format{
-A 1000 by 200 matrix, representing 50 hubs
+A matrix with 200 rows (samples) and 1000 columns (variables/nodes), representing 50 hubs
 }
 \usage{
 data(SIM,package = "betaMix")
 }
 \description{
-SIM is a simulated dataset with a hub structure, consisting of 1000 nodes and 50 hubs.
+SIM is a simulated dataset with a hub structure, consisting of 1000 nodes (variables),
+200 samples, and 50 hubs.
 }
 \keyword{datasets}

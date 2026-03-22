@@ -2,17 +2,29 @@
 % Please edit documentation in R/betaMix.R
 \name{plotFittedBetaMix}
 \alias{plotFittedBetaMix}
-\title{Plot the histogram of the z_j and the fitted mixture distribution.}
+\title{Plot the histogram of the z_j statistics with the fitted mixture overlay.}
 \usage{
 plotFittedBetaMix(betaMixObj, yLim = 5)
 }
 \arguments{
-\item{betaMixObj}{An object returned from betaMix()}
+\item{betaMixObj}{The list returned by \code{\link{betaMix}}.}
 
-\item{yLim}{The maximum value on the y-axis (default=5)}
+\item{yLim}{The maximum value on the y-axis (default=5).  Increase if the
+null component is clipped.}
+}
+\value{
+Invisibly \code{NULL}.
 }
 \description{
-Plot the histogram of the z_j and the fitted mixture distribution.
+Plots a histogram of the \eqn{z_j = \sin^2(\theta)} statistics with four
+overlaid curves and a shaded significance region:
+\itemize{
+  \item \strong{Green dashed} -- null component: \eqn{p_0 \cdot \text{Beta}(\hat{\eta}, 0.5)}.
+  \item \strong{Red} -- non-null component: \eqn{(1-p_0) \cdot \text{Beta}(\hat{a}, \hat{b}) / b_{\max}}.
+  \item \strong{Blue} -- fitted mixture (sum of the two components above).
+  \item \strong{Orange rectangle} -- significance region \eqn{z_j \le \hat{\tau}} (\code{ppthr}); pairs
+    falling here are declared significant edges.
+}
 }
 \examples{
 \dontrun{

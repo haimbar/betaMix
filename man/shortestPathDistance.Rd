@@ -9,7 +9,11 @@ shortestPathDistance(AdjMat, numSteps = 0)
 \arguments{
 \item{AdjMat}{An adjacency Matrix (0/1).}
 
-\item{numSteps}{The maximum number of edges between pairs of nodes. If numSteps=0, returns the input matrix. numSteps=1 adds neighbors of direct neighbors, etc.}
+\item{numSteps}{The number of additional hops beyond direct neighbors to
+include.  \code{numSteps=0} returns the input matrix unchanged (direct
+edges only, path length 1).  \code{numSteps=1} additionally includes paths
+of length 2 (neighbors of neighbors); \code{numSteps=k} includes all paths
+up to length \eqn{k+1}.}
 }
 \value{
 A Matrix containing the shortest path lengths between nodes i and j

@@ -19,6 +19,13 @@ the correlation data is in memory or in a database.}
 
 \item{nodes}{An optional parameter which allows to create a sparse adjacency matrix containing only the neighbors of the selected nodes (default=NULL).}
 }
+\value{
+A sparse \code{Matrix} object of dimension P×P (or a submatrix when
+  \code{nodes} is specified).  Entries are \code{1} for detected edges
+  (\code{0} on the diagonal and for non-edges).  When \code{signed = TRUE},
+  negatively correlated edges are represented by \code{-1}.  Returns
+  \code{NULL} if no edges are selected (SQLite path only).
+}
 \description{
 Works for both in-memory correlation matrices and SQLite-backed storage.
 SQLite storage should be used if P is large and calculating and storing the

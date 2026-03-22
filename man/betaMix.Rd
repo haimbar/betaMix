@@ -61,7 +61,7 @@ in the in-memory path it is passed directly to \code{cor()}.}
 \value{
 A list with the following:
 \describe{
-\item{angleMat}{A PxP matrix with angles between pairs of vectors. If the correlation data is stored in SQLite, then the returned value is database name.}
+\item{angleMat}{A P×P matrix of Pearson (or Spearman) correlations between all pairs of variables.  Note: despite the name, this stores correlations (r), not angles; \eqn{z_j = 1 - r^2} is used internally to avoid redundant trigonometric calls.  When the SQLite path is used (\code{dbname} is provided), this field contains the database filename rather than the matrix.}
 \item{z_j}{The statistics z_j=sin^2(angles).}
 \item{m0}{The posterior null probabilities.}
 \item{p0}{The estimated probability of the null component.}
@@ -70,7 +70,7 @@ A list with the following:
 \item{N}{The sample size.}
 \item{etahat}{If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
 \item{bmax}{The user-defined right-hand side of the support of the non-null component.}
-\item{ppthr}{The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.}
+\item{ppthr}{The z_j threshold below which pairs are declared significant edges.  Computed as the larger of (a) \code{qbeta(maxalpha, etahat, 0.5)} (frequentist Type I error bound) and (b) \code{max(z_j[m0 < ppr])} (Bayesian posterior probability bound), so both error criteria are simultaneously satisfied.}
 \item{nodes}{The number of nodes.}
 \item{edges}{The number of edges found.}
 \item{cnt}{The number of EM iterations.}

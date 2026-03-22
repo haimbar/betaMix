@@ -20,16 +20,34 @@ knitr::opts_chunk$set(
 
 
 
-The betaMix package is used to find edges in gene networks using co-expression data. The betaMix method is built on the insightful results of [@Frankl1990] who showed that two random vectors are approximately perpendicular with high probability, if the dimension of the space is sufficiently large. The pair-wise correlations between pairs of predictors are equal to the cosine of the angles between the pairs. From these angles we compute $z_j=\sin^2(\theta)$ and fit a mixture of two beta distributions. For pairs of random vectors (the null set) the distribution of $z_j$ is Beta((N-1)/2, 1/2), where N is the sample size. The nonnull set is assumed to follow a Beta(a,b) distribution, and using the EM algorithm we estimate a,b, and the proportion, p0, of the null set of pairs. The betaMix function determines a threshold which will control the error rate given by the user. Any $z_j$ below that threshold corresponds to a significantly correlated pair of predictors (an edge in the graphical model.)
-If the N samples can be assumed to be independent, set the parameter `ind` to `TRUE` (the default). If it is set to `FALSE`, the null set follows a Beta((nu-1)/2, 1/2) distribution and nu (the effective sample size) is estimated from the data.
+The betaMix package detects edges in co-expression networks from gene expression (or other multivariate) data.  Given an $N \times P$ expression matrix, the goal is to identify which pairs among the $P$ predictors are significantly correlated — the edges of the underlying graphical model.
+
+## Statistical model
+
+The method is built on the geometric result of [@Frankl1990]: in high-dimensional space, two random (unassociated) vectors are nearly perpendicular with high probability.  The pairwise correlations equal the cosines of the angles between column vectors, and $z_j = \sin^2(\theta)$ is computed for each of the $P(P-1)/2$ pairs.  Under the null (no association), $z_j \sim \text{Beta}((N-1)/2,\, 1/2)$; correlated pairs follow $\text{Beta}(a, b)$ on a rescaled support $[0, b_{\max}]$.  A two-component beta mixture is fitted by the EM algorithm, simultaneously estimating $a$, $b$, and the null proportion $p_0$.
+
+If the N samples can be assumed to be independent, set the parameter `ind` to `TRUE` (the default). If it is set to `FALSE`, the null distribution becomes $\text{Beta}((\nu-1)/2,\, 1/2)$ and the effective sample size $\nu$ is estimated from the data alongside the other parameters.
+
+## One-step efficiency
+
+betaMix fits a **single model** to all $P(P-1)/2$ pairwise statistics simultaneously.  Many competing methods estimate the network by running $P$ separate penalized regressions, each designating one variable as the response and the remaining $P-1$ as predictors.  betaMix avoids this entirely: one EM run produces the fitted mixture, and a single threshold determines all edges at once.  For large $P$ the `subsamplesize` option subsamples pairs for model fitting, and the SQLite-backed path stores the full correlation matrix on disk so that memory never becomes a bottleneck.
+
+## False positive control
+
+betaMix provides two complementary safeguards against false positives that are enforced **simultaneously**:
+
+- **`maxalpha`** (frequentist): the probability that any truly unassociated pair is declared an edge is bounded by `maxalpha` (default $10^{-4}$).  For large $P$ this should be set much smaller (e.g.\ $10^{-6}$) to account for the large number of tests.
+- **`ppr`** (Bayesian): only pairs whose posterior probability of belonging to the null component is below `ppr` (default 0.05) are declared edges.
+
+The edge-detection threshold $\hat\tau$ is set to satisfy whichever criterion is more stringent, giving direct control over both frequentist and Bayesian notions of false discovery.
+
+## Correlation method
 
 By default, betaMix uses Pearson's correlation to measure linear association between predictors. If the relationships of interest are monotone but not necessarily linear, Spearman's rank correlation can be requested via `method = "spearman"`. Both methods produce a $z_j$ statistic in $(0, 1)$ and are handled identically by the EM algorithm; the only difference is how the pairwise correlations are computed (Spearman computes Pearson's correlation on the column ranks). The chosen method is stored in the returned list as `$method`.
 
 The input to the program is a normalized expression matrix, with predictors/genes (which are the nodes in the graph) in the columns, and samples in the rows.
 
-With a large number of predictors, P, the estimation may be slow, so it is recommended to set the parameter `subsamplesize` to something smaller than `choose(P,2)`. The minimum allowed by the program is 20,000; using anything smaller will cause betaMix to fit the model to all `choose(P,2)` pairs.
-
-The betaMix package depends on the 'Matrix' package, to allow for efficient storage and computation of large co-occurrence matrices. If P is very large, the correlation matrix may require an unattainable amount of memory. For such cases, the betaMix package has a procedure to store the correlation data in a SQLite database, thus never loading more than two columns into memory. For this purpose, the package depends on DBI and RSQLite. For the EM algorithm, betaMix requires the nleqslv package.
+The betaMix package depends on the "Matrix" package, to allow for efficient storage and computation of large adjacency matrices. If P is very large, the correlation matrix may require an unattainable amount of memory. For such cases, betaMix can store the correlation data in a SQLite database, loading only two columns at a time. For this purpose, the package depends on DBI and RSQLite. For the EM algorithm, betaMix requires the nleqslv package.
 
 
 # Real data examples
@@ -46,7 +64,7 @@ plotFittedBetaMix(res1)
 Note that we've used the ind=T option, since the 50 samples can be assumed to be independent. The fitted mixture model is shown below. The red line is the non-null component, and the green (solid) line is the null component under the independent sample assumption. If the model is fitted with ind=F, the effective sample size is estimated, and the null component is represented by the dashed line. The blue curve represents the mixture. The orange region shows the range of $z_j$'s which are determined to be significant.
 
 
-```{r echo=FALSE, out.width='60%'}
+```{r echo=FALSE, out.width="60%"}
 knitr::include_graphics('./DrySeedFitted.png')
 ```
 
@@ -76,7 +94,7 @@ Num of unclustered nodes: 13
 
 A depiction of the first cluster is obtained by using the function plotCluster:
 
-```{r echo=FALSE, out.width='50%'}
+```{r echo=FALSE, out.width="50%"}
 knitr::include_graphics('./DrySeedCluster1.png')
 ```
 
@@ -101,7 +119,7 @@ Num of unclustered nodes: 11
 ```
 
 
-```{r echo=FALSE, out.width='50%'}
+```{r echo=FALSE, out.width="50%"}
 knitr::include_graphics('./SixHourImbibedCluster3.png')
 ```
 
@@ -131,7 +149,7 @@ Num of unclustered nodes: 206
 
 We  display the network of cluster 1, which shows that betaMix detects the correct cluster (hub) structure.
 
-```{r echo=FALSE, out.width='45%'}
+```{r echo=FALSE, out.width="45%"}
 knitr::include_graphics('./SimCluster1.png')
 ```
 

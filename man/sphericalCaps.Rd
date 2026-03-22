@@ -2,7 +2,7 @@
 % Please edit documentation in R/betaMix.R
 \name{sphericalCaps}
 \alias{sphericalCaps}
-\title{Find spherical caps with more than one node.}
+\title{Find hub-like subgraphs (spherical caps) in the network.}
 \usage{
 sphericalCaps(A)
 }
@@ -20,9 +20,13 @@ A data frame with the following columns:
 }
 }
 \description{
-Takes a PxP adjacency Matrix as input and find spherical caps with more than
-one node in R^n. Cap centers can only appear in one cap, but other nodes are
-allowed to appear in multiple caps.
+Identifies hub structures in the network graph by greedily selecting
+high-degree nodes as cap centers.  Each center and all its direct neighbors
+form a "cap".  Centers are chosen in decreasing degree order and each node
+can serve as a center at most once; however, non-center nodes may appear in
+multiple caps if they are neighbors of several centers.  Conceptually, each
+hub corresponds to a spherical cap in the high-dimensional space underlying
+the beta-mixture model.
 }
 \examples{
 \dontrun{

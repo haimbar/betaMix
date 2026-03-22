@@ -11,7 +11,8 @@ predictors/genes, and uses the fitted model to identify significantly
 correlated pairs (edges in the graphical model).
 }
 \details{
-The method exploits the result of Frankl & Wilson (1990) that two random
+\strong{Statistical model.}
+The method exploits the result of Frankl & Maehara (1990) that two random
 vectors in high-dimensional space are nearly perpendicular with high
 probability.  Pairwise correlations equal the cosine of the angle between
 the corresponding column vectors; \eqn{z_j = \sin^2(\theta)} is computed
@@ -22,38 +23,62 @@ follow \eqn{\text{Beta}(\hat{a}, \hat{b})} on the rescaled support
 \eqn{[0, b_{\max}]}.  The EM algorithm estimates all unknown parameters
 together with the proportion \eqn{p_0} of null pairs.
 
+\strong{One-step efficiency.}
+betaMix fits a single model to all \eqn{P(P-1)/2} pairwise statistics in
+one step.  Regression-based network methods (e.g.\ neighbourhood selection
+or sparse precision-matrix estimation) require \emph{P} separate model
+fits, each designating a different variable as the response.  betaMix
+avoids this by working directly with the geometry of the correlation
+matrix, making it practical even for large P when combined with the
+\code{subsamplesize} option or the SQLite-backed storage path.
+
+\strong{False positive control.}
+Edge detection is governed by two complementary thresholds that are
+enforced simultaneously:
+\itemize{
+  \item \code{maxalpha}: frequentist bound -- the probability that a truly
+    unassociated pair is declared an edge is at most \code{maxalpha}.
+  \item \code{ppr}: Bayesian bound -- only pairs whose posterior
+    probability of belonging to the null component is below \code{ppr}
+    are declared edges.
+}
+The final threshold satisfies whichever criterion is more stringent,
+giving the user direct control over both frequentist and Bayesian
+notions of false discovery.
+
 \strong{Main functions}
 \tabular{ll}{
   \code{\link{betaMix}}          \tab Fit the model and detect edges. \cr
-  \code{\link{assessFit}}        \tab Goodness-of-fit diagnostics (2x2 plot + verdict). \cr
-  \code{\link{plotFittedBetaMix}}\tab Overlay the fitted mixture on the z_j histogram. \cr
+  \code{\link{assessFit}}        \tab 2x2 goodness-of-fit panel and verdict. \cr
+  \code{\link{plotFittedBetaMix}}\tab Mixture histogram with fitted overlay. \cr
   \code{\link{plotROC}}          \tab Model-based ROC curve. \cr
   \code{\link{plotNonNullDensity}}\tab Kernel density of the non-null component. \cr
-  \code{\link{getAdjMat}}        \tab Build the adjacency matrix from a fitted model. \cr
-  \code{\link{graphComponents}}  \tab Cluster the network into connected components. \cr
+  \code{\link{getAdjMat}}        \tab Build the adjacency matrix from the model. \cr
+  \code{\link{graphComponents}}  \tab Cluster nodes by centrality score. \cr
   \code{\link{summarizeClusters}}\tab Summary statistics for each cluster. \cr
   \code{\link{plotCluster}}      \tab Visualise a single cluster network. \cr
   \code{\link{plotDegCC}}        \tab Degree vs. clustering-coefficient plot. \cr
-  \code{\link{plotBitmapCC}}     \tab Adjacency-matrix bitmap ordered by cluster. \cr
-  \code{\link{collapsedGraph}}   \tab Collapse the network to cluster-level edges. \cr
+  \code{\link{plotBitmapCC}}     \tab Adjacency-matrix bitmap by cluster. \cr
+  \code{\link{collapsedGraph}}   \tab Collapse network to cluster-level edges. \cr
   \code{\link{clusteringCoef}}   \tab Per-node clustering coefficients. \cr
   \code{\link{shortestPathDistance}} \tab Shortest-path distances. \cr
   \code{\link{shortSummary}}     \tab Brief text summary of a fitted model. \cr
-  \code{\link{betaMixReport}}    \tab Render a self-contained PDF analysis report. \cr
-  \code{\link{calcCorr}}         \tab Compute correlations for the SQLite (large-P) path. \cr
-  \code{\link{sphericalCaps}}    \tab Compute spherical cap areas (internal helper). \cr
+  \code{\link{betaMixReport}}    \tab Render a self-contained PDF report. \cr
+  \code{\link{calcCorr}}         \tab Correlations for the SQLite large-P path. \cr
+  \code{\link{sphericalCaps}}    \tab Hub detection via spherical caps. \cr
 }
 
 \strong{Datasets}
 \tabular{ll}{
-  \code{\link{DrySeeds}}       \tab Metabolomic profiles of 50 dry tomato seeds (N=50, P=68). \cr
-  \code{\link{SixHourImbibed}} \tab Metabolomic profiles of 50 seeds imbibed for 6 hours. \cr
-  \code{\link{SIM}}            \tab Simulated hub-structure dataset (N=50, P=1000). \cr
+  \code{\link{DrySeeds}}       \tab Dry tomato seed metabolomes (N=50, P=68). \cr
+  \code{\link{SixHourImbibed}} \tab Imbibed seed metabolomes (N=50, P=68). \cr
+  \code{\link{SIM}}            \tab Simulated hub dataset (N=200, P=1000). \cr
 }
 }
 \references{
-Frankl, P. & Wilson, R. M. (1981). Intersection theorems with geometric
-consequences. \emph{Combinatorica}, \bold{1}(4), 357--368.
+Frankl, P. & Maehara, H. (1990). Some geometric applications of the beta
+distribution. \emph{Annals of the Institute of Statistical Mathematics},
+\bold{42}(3), 463--474.
 }
 \author{
 \strong{Maintainer}: Haim Bar \email{haim.bar@uconn.edu}

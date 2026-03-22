@@ -9,7 +9,13 @@ Authors@R: person(given = "Haim",
 Imports: Rcpp (>= 1.0.5), Matrix, methods, nleqslv
 Suggests: knitr, markdown, rmarkdown, testthat (>= 3.0.0), DBI, RSQLite
 LinkingTo: Rcpp
-Description: Finding edges in co-expression graphs using a mixture of two beta distributions.
+Description: Detects edges in co-expression networks by fitting a two-component beta
+    mixture model to the pairwise correlation statistics of all predictor pairs
+    simultaneously. Unlike regression-based approaches that require P separate model
+    fits (one per variable as the response), betaMix fits a single model to all
+    P(P-1)/2 pairs in one step. False positive control is provided by both a
+    frequentist Type I error bound (maxalpha) and a Bayesian posterior probability
+    threshold (ppr), enforced simultaneously.
 License: GPL-2
 Encoding: UTF-8
 LazyData: true

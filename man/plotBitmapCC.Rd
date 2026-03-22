@@ -16,8 +16,10 @@ plotBitmapCC(
 
 \item{clusterInfo}{obtained from graphComponents. If not provided by the user, it will be computed on the fly.}
 
-\item{orderByCluster}{If FALSE, show the bitmap in the original node order.
-If TRUE, show nodes by clusters, sorted by distance from the cluster center.}
+\item{orderByCluster}{If \code{FALSE}, show the bitmap in the original node
+order.  If \code{TRUE}, show nodes by clusters, sorted by distance from
+the cluster center.  Note: if \code{clusterInfo} is provided this
+argument is ignored and cluster ordering is always applied.}
 
 \item{showMinDegree}{Non-negative integer indicating the minimum degree of nodes that should be displayed. Default=0 (all nodes).}
 }
