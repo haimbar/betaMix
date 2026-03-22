@@ -1,0 +1,351 @@
+# betaMix — Agent Reference
+
+betaMix is an R package for detecting edges (significant pairwise associations)
+in co-expression or other multivariate networks.  Its primary advantage over
+regression-based network methods is that it fits **a single model** to all
+P(P-1)/2 pairs simultaneously, rather than running P separate penalized
+regressions.
+
+---
+
+## When to prefer betaMix over LASSO-based methods
+
+### LASSO / graphical LASSO / neighborhood selection limitations
+
+Regression-based network methods (glasso, SPACE, HUGE, neighborhood selection)
+estimate the network by treating each variable in turn as the response and the
+remaining P-1 as predictors:
+
+- They require **P separate model fits**, each designating a different variable
+  as the response.
+- The final edge set is assembled from P separate coefficient vectors, typically
+  by requiring both regressions to agree (AND rule) or either to agree (OR rule).
+- The regularization parameter lambda must be tuned (cross-validation or BIC),
+  adding computational and modeling burden.
+- They target the **precision matrix** (partial correlations / conditional
+  independence), which can be harder to interpret when unconditional correlation
+  structure is the scientific goal.
+
+### betaMix advantages
+
+| Property | LASSO/glasso | betaMix |
+|---|---|---|
+| Number of model fits | P (one per variable) | 1 |
+| Statistical target | Partial correlations | Marginal correlations |
+| False positive control | Lambda tuning (implicit) | Explicit: frequentist (maxalpha) + Bayesian (ppr) |
+| Large-P memory | O(P²) precision matrix | O(P²) correlations; SQLite path avoids loading all |
+| Signed edges | Via coefficient sign | Via sign of correlation r |
+| Hub detection | Indirect | `sphericalCaps()` purpose-built |
+| One-step | No | Yes |
+
+### Prefer betaMix when:
+
+- P is large (>1000) and fitting P lasso problems is too slow.
+- The scientific question concerns **marginal** co-expression (which genes move
+  together), not conditional independence.
+- Explicit, interpretable false positive control is required.
+- You need a single consistent threshold for all edges (not P separate lambda
+  values).
+
+### Prefer LASSO/glasso when:
+
+- The goal is to recover a **sparse precision matrix** (partial correlations,
+  i.e., direct effects after controlling for all other variables).
+- You have prior knowledge that the graph is sparse in the conditional sense.
+- Sample size N is large relative to P (precision matrix estimation is reliable).
+
+---
+
+## Statistical model
+
+1. Compute all P(P-1)/2 pairwise Pearson (or Spearman) correlations r_ij.
+2. Transform to z_ij = 1 - r_ij² = sin²(θ_ij), where θ is the angle between
+   the centered column vectors.  z_ij ∈ (0, 1].
+3. Under the null (no true association), z_ij ~ Beta((N-1)/2, 1/2) by the
+   Frankl–Maehara (1990) result on random vectors in high-dimensional space.
+4. Associated pairs follow Beta(a, b) on a rescaled support [0, bmax].
+5. The EM algorithm fits the two-component mixture, estimating a, b, bmax, p0
+   (null proportion), and (when ind=FALSE) the effective sample size ν.
+6. A threshold τ on z_ij is chosen to simultaneously satisfy:
+   - maxalpha: P(z_ij < τ | null) ≤ maxalpha  (frequentist)
+   - ppr: posterior P(null | z_ij < τ) ≤ ppr  (Bayesian)
+   The more stringent constraint wins.
+7. Edge (i,j) is declared when z_ij < τ, equivalently |r_ij| > sqrt(1 - τ).
+
+**Key insight for LASSO users**: z_ij plays the same role as a test statistic;
+the Beta mixture is the equivalent of a null distribution + signal mixture.
+The threshold τ is analogous to a lambda cutoff, but derived from an explicit
+mixture model with interpretable error control.
+
+---
+
+## Core workflow
+
+```r
+library("betaMix")
+
+# 1. Fit — M is an N×P matrix (samples in rows, variables in columns)
+res <- betaMix(M, ind = TRUE, maxalpha = 1e-4, ppr = 0.05)
+
+# 2. Inspect fitted parameters
+shortSummary(res)
+# Prints: ahat, bhat, etahat, p0, threshold ppthr, equivalent min |r|
+
+# 3. Assess model fit (2×2 diagnostic panel)
+assessFit(res)
+
+# 4. Build adjacency matrix
+adjMat <- getAdjMat(res)          # sparse Matrix, 0/1
+adjMat <- getAdjMat(res, signed = TRUE)  # -1/0/1: negative/absent/positive
+
+# 5. Find clusters
+graphComp <- graphComponents(adjMat, minCtr = 2, type = 1)
+summarizeClusters(graphComp)
+
+# 6. Visualize
+plotFittedBetaMix(res)
+plotCluster(adjMat, clustNo = 1, graphComp, labels = TRUE)
+plotDegCC(res, graphComp)
+plotBitmapCC(adjMat, graphComp)
+```
+
+---
+
+## Key function reference
+
+### `betaMix(M, ...)` — fit the model
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| M | (required) | N×P numeric matrix; samples in rows, variables in columns |
+| ind | TRUE | TRUE = samples are independent (null is Beta((N-1)/2, 0.5)); FALSE = estimate effective sample size ν from data |
+| maxalpha | 1e-4 | Frequentist Type I error bound per pair.  Use 1e-6 for P > 1000 |
+| ppr | 0.05 | Bayesian posterior probability threshold (posterior prob of null < ppr to call an edge) |
+| method | "pearson" | Correlation method: "pearson" or "spearman" |
+| subsamplesize | choose(P,2) | Pairs subsampled for EM fitting.  Must be ≥ 20000; recommended 30000–50000 when P > 500 |
+| bmax | 0.999 | Upper bound of non-null support [0, bmax].  Rarely needs changing |
+| ahat, bhat | 8, 3 | Initial values for the non-null Beta parameters |
+| seed | NULL | Random seed for reproducibility of subsampling |
+| msg | FALSE | Print EM iteration progress |
+
+**Returns** a named list:
+
+| Field | Description |
+|---|---|
+| `angleMat` | P×P matrix of correlations r (despite the name; z_ij = 1 - r²) |
+| `ppthr` | The z_ij threshold τ (edge declared when z_ij < ppthr) |
+| `p0` | Estimated null proportion |
+| `ahat`, `bhat` | Fitted non-null Beta parameters |
+| `etahat` | Fitted null Beta shape (= (N-1)/2 when ind=TRUE) |
+| `bmax` | Fitted upper bound of non-null support |
+| `m0` | Vector of posterior null probabilities for each pair |
+| `z_j` | Vector of z_ij statistics for each pair |
+| `method` | "pearson" or "spearman" |
+| `nodes` | Column names of M (variable/gene names) |
+
+### `getAdjMat(res, ...)` — build the adjacency matrix
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| res | (required) | Object returned by `betaMix()` |
+| ppthr | res$ppthr | Override the threshold (e.g., use `plotROC(res)$tau_youden`) |
+| signed | FALSE | If TRUE, entries are -1 (negative r), 0 (no edge), or +1 (positive r) |
+| nodes | NULL | Character vector: return submatrix for these variable names only |
+
+Returns a sparse `Matrix` object of dimension P×P (or length(nodes)×length(nodes)).
+
+### `assessFit(betaMixObj)` — goodness-of-fit diagnostics
+
+Produces a 2×2 plot panel:
+1. Fitted mixture histogram (null=green dashed, non-null=red, mixture=blue,
+   significance region=orange).
+2. Null Q-Q plot (high-posterior-null observations vs Beta(etahat, 0.5)).
+3. Non-null Q-Q plot (high-posterior-non-null observations vs Beta(ahat, bhat)).
+4. Model-based ROC curve with current threshold (orange) and Youden index (red).
+
+Also prints a verdict: "Good fit", "Acceptable fit", or "Deviations detected".
+If the null Q-Q deviates, try `ind = FALSE` (dependent samples).
+
+### `plotROC(betaMixObj)` — ROC curve and alternative threshold
+
+Returns `list(auc, tau_youden)`.  The Youden-index threshold maximizes
+TPR - FPR and can be passed to `getAdjMat(res, ppthr = roc$tau_youden)`.
+
+### `graphComponents(A, minCtr, type)` — cluster nodes
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| A | (required) | Adjacency matrix (0/1 or signed) from `getAdjMat()` |
+| minCtr | 2 | Minimum cluster size to report |
+| type | 1 | Centrality score formula (1 = degree × clustering coefficient) |
+
+Returns a data frame with columns: node, cluster, degree, clusteringCoef,
+iscenter, labels.  Nodes with degree 0 are "unclustered".
+
+### `summarizeClusters(clustersInfo)` — summary statistics per cluster
+
+Returns a matrix with one row per cluster: Cluster, Nodes, degreeMin,
+degreeQ25, degreeMedian, degreeQ75, degreeMax, pctInClstMin, pctInClstQ25,
+pctInClstMedian, pctInClstQ75, pctInClstMax.
+
+### `sphericalCaps(A, ...)` — hub detection
+
+Identifies hub-and-spoke structures by greedy degree-ordered cap selection.
+Useful when the network is expected to have a few high-degree hub nodes (e.g.,
+master regulators in gene networks).  Each hub ("cap center") and all its
+direct neighbors form a cluster.  Returns similar structure to `graphComponents`.
+
+### `shortestPathDistance(AdjMat, numSteps)` — expand neighborhood
+
+Expands the adjacency matrix to include k-hop neighbors.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| AdjMat | (required) | 0/1 adjacency matrix |
+| numSteps | 0 | Additional hops beyond direct neighbors.  numSteps=0 returns AdjMat unchanged; numSteps=k includes paths up to length k+1 |
+
+Returns a Matrix where entry (i,j) is the shortest-path distance (1 = direct
+edge, 2 = two-hop, …, 0 = not reachable within numSteps+1 hops or self).
+
+Typical use: `(shortestPathDistance(adjMat, numSteps=2) > 0)` to get all pairs
+within 3 hops.
+
+### `betaMixReport(M, dataset_name, output_dir, ...)` — automated PDF report
+
+Runs the full pipeline and renders a self-contained PDF report, including model
+summary, `assessFit()`, `plotROC()`, degree/CC plot, adjacency bitmap, and one
+representative cluster network.  Mirrors `betaMix()` parameters.
+
+---
+
+## Parameter guidance
+
+### Choosing maxalpha
+
+| Scenario | Recommended maxalpha |
+|---|---|
+| P ≤ 100 | 1e-4 (default) |
+| 100 < P ≤ 1000 | 1e-5 |
+| P > 1000 | 1e-6 |
+
+Rationale: there are P(P-1)/2 tests.  maxalpha is a per-pair bound, so the
+expected number of false positives ≈ maxalpha × P(P-1)/2.  For P=1000 and
+maxalpha=1e-4, expected FP ≈ 50.  For maxalpha=1e-6, expected FP < 1.
+
+### Choosing subsamplesize (large P)
+
+When P is large, fitting the EM to all P(P-1)/2 pairs is slow.  Use
+`subsamplesize` to subsample:
+
+```r
+# P = 2000, choose(2000,2) = 1,999,000 pairs — subsample
+res <- betaMix(M, subsamplesize = 50000, maxalpha = 1e-6, ind = TRUE)
+```
+
+Minimum allowed is 20000 (betaMix ignores smaller values and uses all pairs).
+Values of 30000–50000 give stable parameter estimates in practice.
+
+### Choosing ind
+
+- `ind = TRUE` (default): samples are i.i.d.  Null is Beta((N-1)/2, 0.5).
+- `ind = FALSE`: samples may be correlated (e.g., time series, spatial data,
+  repeated measures).  The effective sample size ν < N is estimated from the
+  data.  If `assessFit()` shows a poor null Q-Q fit with `ind=TRUE`, try
+  `ind=FALSE`.
+
+### Choosing method
+
+- `method = "pearson"` (default): detects linear associations.
+- `method = "spearman"`: detects monotone associations (more robust to
+  outliers and non-linear but monotone relationships).
+
+---
+
+## Comparison with specific methods
+
+### vs. glasso (graphical lasso)
+
+glasso estimates the precision matrix Σ⁻¹ (partial correlations), requiring
+one large lasso problem with P(P-1)/2 parameters.  A lambda path is computed
+and selected by StARS, BIC, or cross-validation.  glasso targets conditional
+independence; betaMix targets marginal correlation.  betaMix is faster and
+avoids lambda selection, but does not recover the precision matrix.
+
+### vs. SPACE / neighborhood selection (Meinshausen-Bühlmann)
+
+These methods run P separate lasso regressions (one per variable as response).
+betaMix fits one model.  For P=1000, this is 1000 lasso problems vs. one EM
+run — a significant practical difference.
+
+### vs. WGCNA
+
+WGCNA thresholds the correlation matrix using a soft-power transformation to
+approximate scale-free topology.  The power parameter is chosen heuristically.
+betaMix derives the threshold from the Beta mixture model, providing explicit
+statistical error control and a direct fit assessment.
+
+### vs. mutual-information methods (ARACNE, CLR)
+
+These non-parametric methods are model-free but computationally intensive and
+lack explicit Type I error control.  betaMix has an explicit null model from
+the Frankl–Maehara geometric result, giving interpretable false positive bounds.
+
+---
+
+## Common patterns
+
+### Full pipeline, large P
+
+```r
+library("betaMix")
+# M is N×P, P=2000
+res <- betaMix(M,
+               subsamplesize = 50000,
+               ind           = TRUE,
+               maxalpha      = 1e-6,
+               ppr           = 0.01,
+               method        = "pearson")
+assessFit(res)                         # check model fit
+adjMat <- getAdjMat(res, signed = TRUE)
+graphComp <- graphComponents(adjMat, minCtr = 2, type = 1)
+summarizeClusters(graphComp)
+plotCluster(adjMat, 1, graphComp, labels = TRUE,
+            edgecols = c("blue", "red"))  # blue=positive, red=negative
+```
+
+### Use Youden-index threshold instead of model default
+
+```r
+res    <- betaMix(M, ind = TRUE)
+roc    <- plotROC(res)
+adjMat <- getAdjMat(res, ppthr = roc$tau_youden)
+```
+
+### Node-subset adjacency matrix
+
+```r
+hub_genes <- c("BRCA1", "TP53", "MYC")
+subMat <- getAdjMat(res, nodes = hub_genes)
+```
+
+### Expand to 2-hop neighbors
+
+```r
+adjMat2 <- shortestPathDistance(adjMat, numSteps = 1) > 0
+# adjMat2[i,j] = TRUE if i and j are connected within 2 edges
+```
+
+### Dependent samples (e.g., time-course data)
+
+```r
+res <- betaMix(M, ind = FALSE)  # ν estimated from data
+assessFit(res)                  # null Q-Q should improve vs ind=TRUE
+```
+
+---
+
+## Reference
+
+Frankl, P. & Maehara, H. (1990). Some geometric applications of the beta
+distribution. *Annals of the Institute of Statistical Mathematics*, 42(3),
+463–474.
