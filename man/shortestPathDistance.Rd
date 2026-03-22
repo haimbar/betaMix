@@ -16,11 +16,16 @@ of length 2 (neighbors of neighbors); \code{numSteps=k} includes all paths
 up to length \eqn{k+1}.}
 }
 \value{
-A Matrix containing the shortest path lengths between nodes i and j
+A Matrix of the same dimensions as \code{AdjMat}.  Entry (i,j) is
+  the shortest-path distance between nodes i and j (1 for direct edges, 2
+  for two-hop paths, etc.).  Zero indicates either a self-pair or a pair not
+  connected within the requested number of hops.
 }
 \description{
-Returns a matrix whose entry (i,j) is the minimum number of steps from node
-i to node j, considering paths up to numSteps edges long.
+Returns a matrix whose entry (i,j) is the shortest-path distance (in number
+of edges) from node i to node j, considering paths of length up to
+\code{numSteps + 1}.  Diagonal entries are 0 (self-distance).  Pairs not
+reachable within the given number of hops remain 0.
 }
 \examples{
 \dontrun{

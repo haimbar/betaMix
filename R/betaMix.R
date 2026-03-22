@@ -1473,15 +1473,20 @@ plotCluster <- function(AdjMat, clustNo, clusterInfo = NULL, labels = FALSE, nod
 
 #' Return a Matrix with the shortest path distance between nodes.
 #'
-#' Returns a matrix whose entry (i,j) is the minimum number of steps from node
-#' i to node j, considering paths up to numSteps edges long.
+#' Returns a matrix whose entry (i,j) is the shortest-path distance (in number
+#' of edges) from node i to node j, considering paths of length up to
+#' \code{numSteps + 1}.  Diagonal entries are 0 (self-distance).  Pairs not
+#' reachable within the given number of hops remain 0.
 #' @param AdjMat An adjacency Matrix (0/1).
 #' @param numSteps The number of additional hops beyond direct neighbors to
 #'   include.  \code{numSteps=0} returns the input matrix unchanged (direct
 #'   edges only, path length 1).  \code{numSteps=1} additionally includes paths
 #'   of length 2 (neighbors of neighbors); \code{numSteps=k} includes all paths
 #'   up to length \eqn{k+1}.
-#' @return A Matrix containing the shortest path lengths between nodes i and j
+#' @return A Matrix of the same dimensions as \code{AdjMat}.  Entry (i,j) is
+#'   the shortest-path distance between nodes i and j (1 for direct edges, 2
+#'   for two-hop paths, etc.).  Zero indicates either a self-pair or a pair not
+#'   connected within the requested number of hops.
 #' @seealso \code{\link{betaMix-package}} for a package overview;
 #'   \code{help(package = "betaMix")} to browse the full function and dataset index.
 #' @export
@@ -1502,14 +1507,22 @@ shortestPathDistance <- function(AdjMat, numSteps = 0) {
   if (numSteps == 0) {
     return(AdjMat)
   }
-  Ap <- minDist <- AdjMat
-  for (i in 1:numSteps) {
-    An <- Ap %*% AdjMat
-    if (sum((An | Ap) - (An & Ap)) == 0) {
-      break
-    }
-    minDist[(An > 0) & (Ap == 0) & (minDist == 0)] <- i
-    Ap <- An
+  # Work with a binary (logical) sparse matrix throughout.  Keeping entries
+  # 0/1 prevents the fill-in explosion that occurs when accumulating path
+  # counts via repeated matrix powers, and avoids the accompanying
+  # correctness issues (off-by-one distances, spurious nonzero diagonals).
+  B        <- AdjMat != 0          # logical sparse — direct edges
+  minDist  <- AdjMat               # output: 1 for direct edges, 0 elsewhere
+  frontier <- B                    # pairs reachable in exactly 1 step
+  visited  <- B                    # all pairs discovered so far
+  diag(visited) <- TRUE            # a node is always "visited" from itself
+  for (i in seq_len(numSteps)) {
+    nextFrontier <- (frontier %*% B) > 0   # pairs reached in i+1 steps
+    nextFrontier[visited] <- FALSE          # remove already-known pairs
+    if (!any(nextFrontier)) break
+    minDist[nextFrontier] <- i + 1          # correct distance label
+    visited  <- visited | nextFrontier
+    frontier <- nextFrontier
   }
   rownames(minDist) <- colnames(minDist) <- rownames(AdjMat)
   minDist

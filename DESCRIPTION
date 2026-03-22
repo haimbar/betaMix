@@ -1,7 +1,7 @@
 Package: betaMix
 Type: Package
 Title: Detect Edges in Co-Expression Graphs
-Version: 0.3.1
+Version: 0.3.2
 Authors@R: person(given = "Haim",
                   family = "Bar",
                   role = c("aut", "cre"),

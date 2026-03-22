@@ -1,3 +1,25 @@
+# betaMix 0.3.2
+
+## Bug fixes
+
+- `shortestPathDistance()`: fixed two correctness bugs in the previous
+  implementation.  (1) Off-by-one: k-hop paths were labelled with distance
+  k−1 instead of k, so 2-hop paths and direct edges were indistinguishable.
+  (2) Diagonal: A² has nonzero diagonals (every node has a 2-step path back
+  to itself), causing self-distances to be set to 1 instead of 0.
+
+## Performance
+
+- `shortestPathDistance()`: rewrote the matrix-power loop to work with binary
+  (logical) sparse matrices throughout.  The previous implementation
+  accumulated integer path counts, causing rapid fill-in — a P=1000 network
+  at 1 % density goes from 1 % dense (A¹) to 60 % dense (A³) to 100 % dense
+  (A⁴).  The new frontier-BFS approach casts to binary after each step,
+  keeping the matrices sparse and giving a 2–6× speed-up depending on P and
+  numSteps.
+
+---
+
 # betaMix 0.3.1
 
 ## Bug fixes
