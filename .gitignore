@@ -17,3 +17,5 @@ betaMix_*.html
 betaMix_*.md
 *_files/
 betaMix_*.tar.gz
+/doc/
+/Meta/
