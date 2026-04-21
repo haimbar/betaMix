@@ -5,6 +5,8 @@ Meta
 .DS_Store
 .Rhistory
 
+*.Rcheck/
+
 # Compiled build artifacts
 src/*.o
 src/*.so
