@@ -1,33 +1,14 @@
-* using log directory ‘/home/haim/Dropbox/Packages/betaMix/..Rcheck’
-* using R version 4.2.1 (2022-06-23)
-* using platform: x86_64-pc-linux-gnu (64-bit)
+* using log directory ‘/Users/haim/Projects/betaMix/..Rcheck’
+* using R version 4.5.1 (2025-06-13)
+* using platform: aarch64-apple-darwin20
+* R was compiled by
+    Apple clang version 16.0.0 (clang-1600.0.26.6)
+    GNU Fortran (GCC) 14.2.0
+* running under: macOS Tahoe 26.3.1
 * using session charset: UTF-8
-* checking for file ‘./DESCRIPTION’ ... OK
-* checking extension type ... Package
-* this is package ‘betaMix’ version ‘0.2.0’
-* package encoding: UTF-8
-* checking package namespace information ... OK
-* checking package dependencies ... OK
-* checking if this is a source package ... WARNING
-Subdirectory ‘betaMix/src’ contains apparent object files/libraries
-  RcppExports.o betaMix.so writeLargeTable.o
-Object files/libraries should not be included in a source package.
-* checking if there is a namespace ... OK
-* checking for executable files ... OK
-* checking for hidden files and directories ... NOTE
-Found the following hidden files and directories:
-  .Rhistory
-  .gitignore
-  R/.Rhistory
-  ..Rcheck
-  .Rproj.user
-  .git
-These were most likely included in error. See section ‘Package
-structure’ in the ‘Writing R Extensions’ manual.
-* checking for portable file names ... OK
-* checking for sufficient/correct file permissions ... OK
-* checking whether package ‘betaMix’ can be installed ... ERROR
-Installation failed.
-See ‘/home/haim/Dropbox/Packages/betaMix/..Rcheck/00install.out’ for details.
+* using options ‘--no-manual --no-vignettes’
+* checking for file ‘./DESCRIPTION’ ... ERROR
+Required fields missing or empty:
+  ‘Author’ ‘Maintainer’
 * DONE
-Status: 1 ERROR, 1 WARNING, 1 NOTE
+Status: 1 ERROR
