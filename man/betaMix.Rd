@@ -70,7 +70,7 @@ A list with the following:
 \item{N}{The sample size.}
 \item{etahat}{If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
 \item{bmax}{The user-defined right-hand side of the support of the non-null component.}
-\item{ppthr}{The z_j threshold below which pairs are declared significant edges.  Computed as the larger of (a) \code{qbeta(maxalpha, etahat, 0.5)} (frequentist Type I error bound) and (b) \code{max(z_j[m0 < ppr])} (Bayesian posterior probability bound), so both error criteria are simultaneously satisfied.}
+\item{ppthr}{The z_j threshold at or below which pairs are declared significant edges.  Computed as the larger of (a) \code{qbeta(maxalpha, etahat, 0.5)} (frequentist Type I error bound) and (b) \code{max(z_j[m0 < ppr])} (Bayesian posterior probability bound), so both error criteria are simultaneously satisfied.}
 \item{nodes}{The number of nodes.}
 \item{edges}{The number of edges found.}
 \item{cnt}{The number of EM iterations.}

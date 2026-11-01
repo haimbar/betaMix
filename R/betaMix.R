@@ -38,7 +38,7 @@ NULL
 #' \item{N}{The sample size.}
 #' \item{etahat}{If the samples are not assumed to be independent, this corresponds to the effective sample size, ESS=2*etahat+1}
 #' \item{bmax}{The user-defined right-hand side of the support of the non-null component.}
-#' \item{ppthr}{The z_j threshold below which pairs are declared significant edges.  Computed as the larger of (a) \code{qbeta(maxalpha, etahat, 0.5)} (frequentist Type I error bound) and (b) \code{max(z_j[m0 < ppr])} (Bayesian posterior probability bound), so both error criteria are simultaneously satisfied.}
+#' \item{ppthr}{The z_j threshold at or below which pairs are declared significant edges.  Computed as the larger of (a) \code{qbeta(maxalpha, etahat, 0.5)} (frequentist Type I error bound) and (b) \code{max(z_j[m0 < ppr])} (Bayesian posterior probability bound), so both error criteria are simultaneously satisfied.}
 #' \item{nodes}{The number of nodes.}
 #' \item{edges}{The number of edges found.}
 #' \item{cnt}{The number of EM iterations.}
@@ -105,7 +105,7 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
     if (any(is.na(corM))) {
       corM[is.na(corM)] <- 0
     }
-    # Store corM directly (not acos(corM)): getAdjMat uses (1 - corM^2) < ppthr
+    # Store corM directly (not acos(corM)): getAdjMat uses (1 - corM^2) <= ppthr
     # instead of sin(acos(r))^2 -- same value, eliminates P^2 trig calls.
     angleMat <- corM
     # sin^2(arccos(r)) == 1 - r^2; avoids sin() on the lower triangle
@@ -203,7 +203,7 @@ betaMix <- function(M, dbname = NULL, tol = 1e-4, calcAcc = 1e-9, maxalpha = 1e-
       ppthr <- max(z_j[critPP])
     }
     p0 <- mean(m0)
-    res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE zij < %f", ppthr))
+    res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE zij <= %.17g AND zij < 1", ppthr))
     selected <- DBI::dbFetch(res)
     edges <- nrow(selected)
     DBI::dbClearResult(res)
@@ -284,14 +284,16 @@ getAdjMat <- function(res, dbname = NULL, ppthr = NULL, signed = FALSE, nodes = 
       } else {
         Atmp <- Matrix(res$angleMat[nodes, ])
       }
-      nbrs <- which(colSums((1 - Atmp^2) < ppthr) > 0)
+      nbrs <- which(colSums((1 - Atmp^2) <= ppthr & Atmp != 0) > 0)
       selected <- sort(union(nodes, nbrs))
       angMat <- res$angleMat[selected, selected]
     } else {
       angMat <- res$angleMat
     }
     # angleMat now holds corM; sin(acos(r))^2 == 1-r^2, acos(r)>pi/2 == r<0
-    A <- (1 - angMat^2) < ppthr
+    # r == 0 exactly only arises from zero-variance columns (cor set to 0);
+    # exclude it so such nodes stay isolated even when ppthr = 1
+    A <- (1 - angMat^2) <= ppthr & angMat != 0
     if (signed) {
       negedges <- intersect(which(A > 0), which(angMat < 0))
       if (length(negedges) > 0) {
@@ -320,10 +322,10 @@ getAdjMat <- function(res, dbname = NULL, ppthr = NULL, signed = FALSE, nodes = 
   A <- Matrix::Matrix(FALSE, P, P)
   colnames(A) <- pnames
   if (is.null(nodes)) {
-    res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE zij < %f", ppthr))
+    res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE zij <= %.17g AND zij < 1", ppthr))
   } else {
     sset <- paste(nodes, collapse = ",")
-    res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE (node1 IN (%s) OR node2 IN (%s)) AND zij < %f", sset, sset, ppthr))
+    res <- DBI::dbSendQuery(con, sprintf("SELECT * FROM correlations WHERE (node1 IN (%s) OR node2 IN (%s)) AND zij <= %.17g AND zij < 1", sset, sset, ppthr))
   }
   selected <- DBI::dbFetch(res)
   DBI::dbClearResult(res)

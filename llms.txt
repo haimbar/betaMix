@@ -142,7 +142,7 @@ plotBitmapCC(adjMat, graphComp)
 | Field | Description |
 |---|---|
 | `angleMat` | P×P matrix of correlations r (despite the name; z_ij = 1 - r²) |
-| `ppthr` | The z_ij threshold τ (edge declared when z_ij < ppthr) |
+| `ppthr` | The z_ij threshold τ (edge declared when z_ij <= ppthr) |
 | `p0` | Estimated null proportion |
 | `ahat`, `bhat` | Fitted non-null Beta parameters |
 | `etahat` | Fitted null Beta shape (= (N-1)/2 when ind=TRUE) |

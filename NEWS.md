@@ -1,3 +1,28 @@
+# betaMix 0.3.4
+
+## Bug fixes
+
+- `getAdjMat()`: changed the edge condition from `< ppthr` to `<= ppthr` so
+  the adjacency matrix edge count matches `betaMix()$edges`.  `betaMix()` sets
+  `ppthr` to the z_j value of the boundary pair itself and counts edges with
+  `z_j <= ppthr`, so `getAdjMat()` was dropping that pair.  Applies to the
+  in-memory path, the `nodes` subset path, and the SQLite (`dbname`) queries.
+  (Same fix as betaMixPy 0.2.1.)
+- `getAdjMat()`: a pair with correlation exactly 0 is never an edge.  Such
+  values arise only from zero-variance columns (whose correlations are set
+  to 0), so constant columns now stay isolated even with `ppthr = 1`.
+- SQLite path (`betaMix()` and `getAdjMat()` with `dbname`): `ppthr` is now
+  written into the SQL query with full precision (`%.17g`) instead of `%f`,
+  which rounded it to 6 decimals and could include or drop pairs near the
+  threshold.
+
+## Tests
+
+- `test-getAdjMat.R`: added checks that the adjacency edge count equals
+  `betaMix()$edges` and that a pair with `z_j == ppthr` is included.
+
+---
+
 # betaMix 0.3.3
 
 ## Performance

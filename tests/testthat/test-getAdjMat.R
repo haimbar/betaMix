@@ -62,6 +62,22 @@ test_that("getAdjMat with ppthr=0 returns no-edges matrix", {
   expect_true(all(!adj_none))
 })
 
+# ── Edge count consistency with betaMix() ─────────────────────────────────────
+
+test_that("getAdjMat edge count matches betaMix()$edges", {
+  adj <- as.matrix(getAdjMat(local_res))
+  expect_equal(sum(adj[upper.tri(adj)] != 0), local_res$edges)
+})
+
+test_that("getAdjMat includes the pair whose z_j equals ppthr", {
+  # betaMix sets ppthr to the z_j of the boundary pair itself, so a pair
+  # with z_j == ppthr must be an edge
+  k <- 5
+  thr <- sort(local_res$z_j)[k]
+  adj <- as.matrix(getAdjMat(local_res, ppthr = thr))
+  expect_equal(sum(adj[upper.tri(adj)] != 0), k)
+})
+
 # ── Node subset ───────────────────────────────────────────────────────────────
 
 test_that("getAdjMat nodes subset returns matrix with at least those nodes", {
